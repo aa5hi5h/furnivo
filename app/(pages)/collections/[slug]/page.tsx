@@ -59,6 +59,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
         .from('collections')
         .select('*')
         .eq('slug', slug)
+        .single()
 
       if (collectionError) throw collectionError;
       setCollection(collectionData as Collection);
