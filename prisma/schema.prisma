@@ -1,0 +1,96 @@
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Product {
+  id              String   @id @default(uuid())
+  name            String   @db.Text
+  slug            String   @unique @db.Text
+  description     String   @db.Text
+  category        String
+  price           Float
+  original_price  Float?
+  stock           Int      @default(0)
+  featured        Boolean  @default(false)
+  images          String[] @default([])
+  dimensions      Json     @default("{}")
+  materials       String
+  colors          String[] @default([])
+  collection_id   String?
+  collection      Collection? @relation(fields: [collection_id], references: [id])
+  rating          Float    @default(0)
+  review_count    Int      @default(0)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  reviews         Review[]
+  cartItems       CartItem[]
+  wishlistItems   WishlistItem[]
+}
+
+model Collection {
+  id          String   @id @default(uuid())
+  name        String   @db.Text
+  slug        String   @unique @db.Text
+  description String   @db.Text
+  image_url   String   @db.Text
+  featured    Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  products    Product[]
+}
+
+model CartItem {
+  id             String   @id @default(uuid())
+  user_id        String
+  product_id     String
+  product        Product  @relation(fields: [product_id], references: [id])
+  quantity       Int      @default(1)
+  selected_color String
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+}
+
+model WishlistItem {
+  id         String   @id @default(uuid())
+  user_id    String
+  product_id String
+  product    Product  @relation(fields: [product_id], references: [id])
+  created_at DateTime @default(now())
+}
+
+model Order {
+  id               String   @id @default(uuid())
+  user_id          String
+  status           String
+  total_amount     Float
+  shipping_address Json     @default("{}")
+  payment_method   String
+  payment_status   String
+  delivery_option  String
+  tracking_number  String?
+  notes            String?  @db.Text
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+}
+
+model Review {
+  id                String   @id @default(uuid())
+  product_id        String
+  product           Product  @relation(fields: [product_id], references: [id])
+  user_id           String
+  rating            Int
+  title             String   @db.Text
+  comment           String   @db.Text
+  images            String[] @default([])
+  verified_purchase Boolean  @default(false)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+}

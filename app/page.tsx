@@ -2,46 +2,48 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, MapPin, Facebook, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
 import ProductCard from '@/components/product-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-async function getFeaturedProducts() {
-  const { data, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('featured', true)
-    .limit(4);
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3000';
 
-  return data || [];
+async function getFeaturedProducts() {
+  try {
+    const res = await fetch(`${API_BASE}/api/products/featured`, {
+      next: { revalidate: 3600 }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    console.error('Error fetching featured products:', error);
+    return [];
+  }
 }
 
 async function getWavveProducts() {
-  const { data: collection } = await supabase
-    .from('collections')
-    .select('id')
-    .eq('slug', 'wavve-collection')
-    .single();
-
-  if (!collection) return [];
-
-  const { data } = await supabase
-    .from('products')
-    .select('*')
-    .eq('collection_id', collection.id)
-    .limit(4);
-
-  return data || [];
+  try {
+    const res = await fetch(`${API_BASE}/api/collections/wavve-collection/products`, {
+      next: { revalidate: 3600 }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (error) {
+    console.error('Error fetching wavve products:', error);
+    return [];
+  }
 }
 
 async function getWavveCollection() {
-  const { data } = await supabase
-    .from('collections')
-    .select('*')
-    .eq('slug', 'wavve-collection')
-    .single();
-
-  return data;
+  try {
+    const res = await fetch(`${API_BASE}/api/collections/wavve-collection`, {
+      next: { revalidate: 3600 }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (error) {
+    console.error('Error fetching wavve collection:', error);
+    return null;
+  }
 }
 
 export default async function Home() {
