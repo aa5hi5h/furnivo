@@ -1,11 +1,27 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, type CartItem, type Product } from '@/lib/supabase';
-import { User } from '@supabase/supabase-js';
+import { useAuth } from '@/hooks/use-auth';
+
+type CartItem = {
+  id: string;
+  user_id: string;
+  product_id: string;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    images: string[];
+    slug: string;
+  };
+  quantity: number;
+  selected_color: string;
+  created_at: string;
+  updated_at: string;
+};
 
 type CartContextType = {
-  cart: (CartItem & { product: Product })[];
+  cart: CartItem[];
   addToCart: (productId: string, quantity: number, color?: string) => Promise<void>;
   removeFromCart: (itemId: string) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
@@ -14,7 +30,7 @@ type CartContextType = {
   cartTotal: number;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
-  user: User | null;
+  user: { id: string; email?: string; [key: string]: any } | null;
 };
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -28,111 +44,117 @@ export const useCart = () => {
 };
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cart, setCart] = useState<(CartItem & { product: Product })[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      if (user) {
-        loadCart(user.id);
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadCart(session.user.id);
-      } else {
-        setCart([]);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    if (user?.id) {
+      loadCart(user.id);
+    } else {
+      setCart([]);
+    }
+  }, [user?.id]);
 
   const loadCart = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('cart_items')
-      .select('*, product:products(*)')
-      .eq('user_id', userId);
-
-    if (!error && data) {
-      setCart(data as any);
+    try {
+      const response = await fetch(`/api/cart?userId=${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCart(data);
+      }
+    } catch (error) {
+      console.error('Error loading cart:', error);
     }
   };
 
   const addToCart = async (productId: string, quantity: number = 1, color?: string) => {
-    if (!user) {
+    if (!user?.id) {
       alert('Please sign in to add items to cart');
       return;
     }
 
     const existingItem = cart.find(
-      item => item.product_id === productId && item.selected_color === (color || null)
+      item => item.product_id === productId && item.selected_color === (color || '')
     );
 
     if (existingItem) {
       await updateQuantity(existingItem.id, existingItem.quantity + quantity);
     } else {
-      const { error } = await supabase
-        .from('cart_items')
-        .insert({
-          user_id: user.id,
-          product_id: productId,
-          quantity,
-          selected_color: color || null,
+      try {
+        const response = await fetch('/api/cart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.id,
+            productId,
+            quantity,
+            selectedColor: color || '',
+          }),
         });
 
-      if (!error) {
-        await loadCart(user.id);
-        setIsCartOpen(true);
+        if (response.ok) {
+          await loadCart(user.id);
+          setIsCartOpen(true);
+        }
+      } catch (error) {
+        console.error('Error adding to cart:', error);
       }
     }
   };
 
   const removeFromCart = async (itemId: string) => {
-    if (!user) return;
+    if (!user?.id) return;
 
-    const { error } = await supabase
-      .from('cart_items')
-      .delete()
-      .eq('id', itemId);
+    try {
+      const response = await fetch(`/api/cart/${itemId}`, {
+        method: 'DELETE',
+      });
 
-    if (!error) {
-      await loadCart(user.id);
+      if (response.ok) {
+        await loadCart(user.id);
+      }
+    } catch (error) {
+      console.error('Error removing from cart:', error);
     }
   };
 
   const updateQuantity = async (itemId: string, quantity: number) => {
-    if (!user) return;
+    if (!user?.id) return;
 
     if (quantity <= 0) {
       await removeFromCart(itemId);
       return;
     }
 
-    const { error } = await supabase
-      .from('cart_items')
-      .update({ quantity })
-      .eq('id', itemId);
+    try {
+      const response = await fetch(`/api/cart/${itemId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity }),
+      });
 
-    if (!error) {
-      await loadCart(user.id);
+      if (response.ok) {
+        await loadCart(user.id);
+      }
+    } catch (error) {
+      console.error('Error updating quantity:', error);
     }
   };
 
   const clearCart = async () => {
-    if (!user) return;
+    if (!user?.id) return;
 
-    const { error } = await supabase
-      .from('cart_items')
-      .delete()
-      .eq('user_id', user.id);
+    try {
+      const response = await fetch(`/api/cart/clear?userId=${user.id}`, {
+        method: 'DELETE',
+      });
 
-    if (!error) {
-      setCart([]);
+      if (response.ok) {
+        setCart([]);
+      }
+    } catch (error) {
+      console.error('Error clearing cart:', error);
     }
   };
 
