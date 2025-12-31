@@ -2,58 +2,155 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCart } from '@/contexts/cart-context';
-import { supabase, type Order } from '@/lib/supabase';
+import { signOut, useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Heart, MapPin, Settings, LogOut } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+interface Order {
+  id: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  orderItems: {
+    id: string;
+    quantity: number;
+    price: number;
+    product: {
+      id: string;
+      name: string;
+      image: string;
+    };
+  }[];
+}
+
+interface Profile {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+}
+
+interface Address {
+  id: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
+}
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user } = useCart();
+  const { data: session, status } = useSession();
+  const { toast } = useToast();
+  
   const [orders, setOrders] = useState<Order[]>([]);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!user) {
+    if (status === 'unauthenticated') {
       router.push('/auth');
       return;
     }
-    loadUserData();
-  }, [user]);
+    
+    if (status === 'authenticated') {
+      loadUserData();
+    }
+  }, [status]);
 
   const loadUserData = async () => {
-    if (!user) return;
+    try {
+      setLoading(true);
+      
+      // Fetch profile
+      const profileRes = await fetch('/api/account/profile');
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        setProfile(profileData);
+      }
 
-    const { data: profileData } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+      // Fetch orders
+      const ordersRes = await fetch('/api/account/orders');
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json();
+        setOrders(ordersData);
+      }
 
-    setProfile(profileData);
-
-    const { data: ordersData } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (ordersData) setOrders(ordersData);
+      // Fetch addresses
+      const addressesRes = await fetch('/api/account/addresses');
+      if (addressesRes.ok) {
+        const addressesData = await addressesRes.json();
+        setAddresses(addressesData);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load account data',
+        variant: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
+    await signOut({ callbackUrl: '/' });
   };
 
-  if (!user) {
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    
+    try {
+      setSaving(true);
+      const res = await fetch('/api/account/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profile.name,
+          phone: profile.phone,
+        }),
+      });
+
+      if (res.ok) {
+        const updatedProfile = await res.json();
+        setProfile(updatedProfile);
+        toast({
+          title: 'Success',
+          description: 'Profile updated successfully',
+        });
+      } else {
+        throw new Error('Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update profile',
+        variant: 'error',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
       </div>
     );
+  }
+
+  if (!session) {
+    return null;
   }
 
   return (
@@ -62,7 +159,7 @@ export default function AccountPage() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="font-serif text-4xl font-bold text-[#2C2C2C] mb-2">My Account</h1>
-            <p className="text-gray-600">{user.email}</p>
+            <p className="text-gray-600">{session.user?.email}</p>
           </div>
           <Button variant="outline" onClick={handleSignOut}>
             <LogOut className="w-4 h-4 mr-2" />
@@ -108,7 +205,7 @@ export default function AccountPage() {
                         <div>
                           <CardTitle className="text-lg">Order #{order.id.slice(0, 8).toUpperCase()}</CardTitle>
                           <p className="text-sm text-gray-600 mt-1">
-                            {new Date(order.created_at).toLocaleDateString('en-US', {
+                            {new Date(order.createdAt).toLocaleDateString('en-US', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',
@@ -124,9 +221,11 @@ export default function AccountPage() {
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="text-sm text-gray-600">Total Amount</p>
-                          <p className="text-2xl font-bold">₹{order.total_amount.toLocaleString()}</p>
+                          <p className="text-2xl font-bold">₹{order.totalAmount.toLocaleString()}</p>
                         </div>
-                        <Button variant="outline">View Details</Button>
+                        <Button variant="outline" onClick={() => router.push(`/orders/${order.id}`)}>
+                          View Details
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -146,13 +245,39 @@ export default function AccountPage() {
           </TabsContent>
 
           <TabsContent value="addresses">
-            <Card>
-              <CardContent className="text-center py-12">
-                <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">No saved addresses</p>
-                <Button>Add Address</Button>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              {addresses.length === 0 ? (
+                <Card>
+                  <CardContent className="text-center py-12">
+                    <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-600 mb-4">No saved addresses</p>
+                    <Button>Add Address</Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                addresses.map((address) => (
+                  <Card key={address.id}>
+                    <CardContent className="pt-6">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{address.street}</p>
+                          <p className="text-gray-600">
+                            {address.city}, {address.state} {address.postalCode}
+                          </p>
+                          <p className="text-gray-600">{address.country}</p>
+                          {address.isDefault && (
+                            <span className="inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <Button variant="outline" size="sm">Edit</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="settings">
@@ -167,7 +292,8 @@ export default function AccountPage() {
                     <input
                       type="text"
                       className="w-full border rounded-lg px-4 py-2"
-                      value={profile?.full_name || ''}
+                      value={profile?.name || ''}
+                      onChange={(e) => setProfile(prev => prev ? { ...prev, name: e.target.value } : null)}
                       placeholder="Your name"
                     />
                   </div>
@@ -176,7 +302,7 @@ export default function AccountPage() {
                     <input
                       type="email"
                       className="w-full border rounded-lg px-4 py-2 bg-gray-50"
-                      value={user.email}
+                      value={profile?.email || ''}
                       disabled
                     />
                   </div>
@@ -186,10 +312,17 @@ export default function AccountPage() {
                       type="tel"
                       className="w-full border rounded-lg px-4 py-2"
                       value={profile?.phone || ''}
+                      onChange={(e) => setProfile(prev => prev ? { ...prev, phone: e.target.value } : null)}
                       placeholder="Your phone number"
                     />
                   </div>
-                  <Button className="bg-[#2C2C2C]">Save Changes</Button>
+                  <Button 
+                    className="bg-[#2C2C2C]"
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </Button>
                 </div>
               </CardContent>
             </Card>

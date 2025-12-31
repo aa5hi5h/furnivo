@@ -22,7 +22,7 @@ async function getFeaturedProducts() {
 
 async function getWavveProducts() {
   try {
-    const res = await fetch(`${API_BASE}/api/collections/wavve-collection/products`, {
+    const res = await fetch(`${API_BASE}/api/collections`, {
       next: { revalidate: 3600 }
     });
     if (!res.ok) return [];

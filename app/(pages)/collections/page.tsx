@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
@@ -11,8 +10,9 @@ interface Collection {
   id: string;
   name: string;
   slug: string;
-  image_url: string;
+  imageUrl: string;
   description: string;
+  createdAt: string;
 }
 
 export default function CollectionsPage() {
@@ -29,17 +29,22 @@ export default function CollectionsPage() {
   const fetchCollections = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('collections')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const res = await fetch('/api/collections');
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch collections');
+      }
 
-      if (error) throw error;
-      setCollections((data || []) as Collection[]);
-      setFilteredCollections((data || []) as Collection[]);
+      const data = await res.json();
+      setCollections(data);
+      setFilteredCollections(data);
     } catch (error) {
       console.error('Error fetching collections:', error);
-      toast({ title: 'Error', description: 'Failed to load collections' });
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to load collections',
+        variant: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -48,9 +53,13 @@ export default function CollectionsPage() {
   const handleSort = (value: string) => {
     setSortBy(value);
     let sorted = [...collections];
+    
     if (value === 'name') {
       sorted.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (value === 'newest') {
+      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }
+    
     setFilteredCollections(sorted);
   };
 
@@ -95,7 +104,7 @@ export default function CollectionsPage() {
         {/* Masonry Grid */}
         {loading ? (
           <div className="flex items-center justify-center h-96">
-            <p className="text-gray-500">Loading collections...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
           </div>
         ) : filteredCollections.length === 0 ? (
           <div className="flex items-center justify-center h-96">
@@ -112,7 +121,7 @@ export default function CollectionsPage() {
                 }`}
               >
                 <img
-                  src={collection.image_url}
+                  src={collection.imageUrl}
                   alt={collection.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />

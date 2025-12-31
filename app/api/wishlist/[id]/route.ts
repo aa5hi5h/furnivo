@@ -12,7 +12,10 @@ export async function DELETE(
       where: { id },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ 
+      success: true,
+      message: 'Removed from wishlist',
+    });
   } catch (error) {
     console.error("Error removing from wishlist:", error);
     return NextResponse.json(

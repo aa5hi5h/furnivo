@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Eye, Heart, ShoppingCart } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useCart } from '@/contexts/cart-context';
 import { useToast } from '@/hooks/use-toast';
 import { QuickViewModal } from '@/components/quick-view-modal';
@@ -15,13 +14,14 @@ interface Product {
   name: string;
   slug: string;
   price: number;
-  original_price?: number;
+  originalPrice?: number | null;
   images: string[];
   colors?: string[];
-  rating: number;
-  review_count: number;
   stock: number;
-  discount_percentage?: number;
+  rating: number; // Changed from optional to required
+  review_count: number; // Changed from optional to required
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 export default function SalePage() {
@@ -61,22 +61,25 @@ export default function SalePage() {
   const fetchSaleProducts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .not('original_price', 'is', null)
-        .gt('discount_percentage', 0)
-        .order('discount_percentage', { ascending: false });
+      // Fetch products with originalPrice (sale items)
+      const response = await fetch('/api/products?hasDiscount=true');
+      const result = await response.json();
 
-      if (error) throw error;
-      setProducts((data || []) as Product[]);
-      setFilteredProducts((data || []) as Product[]);
+      if (result.success) {
+        setProducts(result.data || []);
+        setFilteredProducts(result.data || []);
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({ title: 'Error', description: 'Failed to load sale products' });
+      toast({ title: 'Error', description: 'Failed to load sale products', variant: 'error' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateDiscountPercentage = (price: number, originalPrice?: number | null): number => {
+    if (!originalPrice || originalPrice <= price) return 0;
+    return Math.round(((originalPrice - price) / originalPrice) * 100);
   };
 
   const handleFilterRange = (range: string) => {
@@ -86,7 +89,7 @@ export default function SalePage() {
     if (range !== 'all') {
       const [min, max] = range.split('-').map(Number);
       filtered = filtered.filter(p => {
-        const discount = p.discount_percentage || 0;
+        const discount = calculateDiscountPercentage(p.price, p.originalPrice);
         return discount >= min && discount <= max;
       });
     }
@@ -98,7 +101,11 @@ export default function SalePage() {
     let sorted = [...items];
     switch (sortBy) {
       case 'discount':
-        sorted.sort((a, b) => (b.discount_percentage || 0) - (a.discount_percentage || 0));
+        sorted.sort((a, b) => {
+          const discountA = calculateDiscountPercentage(a.price, a.originalPrice);
+          const discountB = calculateDiscountPercentage(b.price, b.originalPrice);
+          return discountB - discountA;
+        });
         break;
       case 'price-low':
         sorted.sort((a, b) => a.price - b.price);
@@ -179,7 +186,7 @@ export default function SalePage() {
         {/* Sort and View */}
         <div className="flex items-center justify-between mb-8">
           <span className="text-sm text-gray-600">
-            Showing {filteredProducts.length} products
+            Showing {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''}
           </span>
           <Select value={sortBy} onValueChange={handleSort}>
             <SelectTrigger className="w-48">
@@ -196,17 +203,22 @@ export default function SalePage() {
         {/* Products Grid */}
         {loading ? (
           <div className="flex items-center justify-center h-96">
-            <p className="text-gray-500">Loading products...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="flex items-center justify-center h-96">
-            <p className="text-gray-500">No products found in this discount range.</p>
+            <div className="text-center">
+              <p className="text-gray-500 mb-4">No products found in this discount range.</p>
+              <Button onClick={() => handleFilterRange('all')} variant="outline">
+                View All Sale Items
+              </Button>
+            </div>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {filteredProducts.map((product, index) => {
-                const discount = product.discount_percentage || 0;
+              {filteredProducts.map((product) => {
+                const discount = calculateDiscountPercentage(product.price, product.originalPrice);
 
                 return (
                   <div
@@ -221,18 +233,28 @@ export default function SalePage() {
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-200" />
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-400">No image</span>
+                        </div>
                       )}
 
                       {/* Discount Badge - Large */}
-                      <div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-2 rounded-full text-center">
-                        <div className="font-bold text-lg">{discount}%</div>
-                        <div className="text-xs">OFF</div>
-                      </div>
+                      {discount > 0 && (
+                        <div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-2 rounded-full text-center">
+                          <div className="font-bold text-lg">{discount}%</div>
+                          <div className="text-xs">OFF</div>
+                        </div>
+                      )}
 
                       {product.stock < 10 && product.stock > 0 && (
                         <div className="absolute top-3 left-3 bg-amber-500 text-white px-2 py-1 rounded text-xs font-bold">
                           LIMITED STOCK
+                        </div>
+                      )}
+
+                      {product.stock === 0 && (
+                        <div className="absolute top-3 left-3 bg-gray-900 text-white px-2 py-1 rounded text-xs font-bold">
+                          OUT OF STOCK
                         </div>
                       )}
 
@@ -242,13 +264,15 @@ export default function SalePage() {
                             setQuickViewProduct(product);
                             setShowQuickView(true);
                           }}
-                          className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white"
+                          className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
+                          aria-label="Quick view"
                         >
                           <Eye size={20} />
                         </button>
                         <button
                           onClick={() => handleAddToWishlist(product.id)}
-                          className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white"
+                          className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
+                          aria-label="Add to wishlist"
                         >
                           <Heart size={20} />
                         </button>
@@ -256,7 +280,7 @@ export default function SalePage() {
                     </div>
 
                     <div className="p-4 flex-1 flex flex-col">
-                      <h3 className="font-semibold text-gray-900 text-sm mb-2">
+                      <h3 className="font-semibold text-gray-900 text-sm mb-2 line-clamp-2">
                         <Link href={`/products/${product.slug}`} className="hover:text-[#C47456]">
                           {product.name}
                         </Link>
@@ -266,20 +290,26 @@ export default function SalePage() {
                         <span className="font-bold text-red-600 text-lg">
                           ₹{product.price.toLocaleString('en-IN')}
                         </span>
-                        {product.original_price && (
+                        {product.originalPrice && (
                           <span className="text-sm text-gray-400 line-through">
-                            ₹{product.original_price.toLocaleString('en-IN')}
+                            ₹{product.originalPrice.toLocaleString('en-IN')}
                           </span>
                         )}
                       </div>
 
+                      {discount > 0 && (
+                        <p className="text-green-600 text-xs mb-3">
+                          Save ₹{((product.originalPrice || 0) - product.price).toLocaleString('en-IN')}
+                        </p>
+                      )}
+
                       <Button
                         onClick={() => handleAddToCart(product.id, '', 1)}
                         disabled={product.stock === 0}
-                        className="w-full bg-[#2C2C2C] hover:bg-[#C47456] text-white mt-auto"
+                        className="w-full bg-[#2C2C2C] hover:bg-[#C47456] text-white mt-auto disabled:bg-gray-300 disabled:cursor-not-allowed"
                       >
                         <ShoppingCart size={18} className="mr-2" />
-                        Add to Cart
+                        {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                       </Button>
                     </div>
                   </div>

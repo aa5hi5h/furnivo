@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase, type Product, type Order } from '@/lib/supabase';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Package,
@@ -37,12 +38,40 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 
+interface Product {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  category: string;
+  price: number;
+  originalPrice: number | null;
+  stock: number;
+  images: string[];
+  colors: string[];
+  materials: string | null;
+  featured: boolean;
+  createdAt: string;
+}
+
+interface Order {
+  id: string;
+  userId: string;
+  status: string;
+  totalAmount: number;
+  paymentMethod: string | null;
+  createdAt: string;
+}
+
 export default function AdminDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -50,7 +79,7 @@ export default function AdminDashboard() {
     description: '',
     category: 'Living Room',
     price: 0,
-    original_price: 0,
+    originalPrice: 0,
     stock: 0,
     images: [] as string[],
     colors: [] as string[],
@@ -59,50 +88,100 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    loadProducts();
-    loadOrders();
-  }, []);
+    if (status === 'unauthenticated') {
+      router.push('/auth');
+    } else if (status === 'authenticated') {
+      loadProducts();
+      loadOrders();
+    }
+  }, [status]);
 
   const loadProducts = async () => {
-    const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-    if (data) setProducts(data);
+    try {
+      const res = await fetch('/api/admin/products');
+      if (res.ok) {
+        const data = await res.json();
+        setProducts(data);
+      }
+    } catch (error) {
+      console.error('Error loading products:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadOrders = async () => {
-    const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-    if (data) setOrders(data);
+    try {
+      const res = await fetch('/api/admin/orders');
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } catch (error) {
+      console.error('Error loading orders:', error);
+    }
   };
 
   const handleAddProduct = async () => {
-    const { error } = await supabase.from('products').insert(newProduct);
-    if (!error) {
-      setIsAddProductOpen(false);
-      loadProducts();
-      setNewProduct({
-        name: '',
-        slug: '',
-        description: '',
-        category: 'Living Room',
-        price: 0,
-        original_price: 0,
-        stock: 0,
-        images: [],
-        colors: [],
-        materials: '',
-        featured: false,
+    try {
+      const res = await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProduct),
       });
+
+      if (res.ok) {
+        setIsAddProductOpen(false);
+        loadProducts();
+        setNewProduct({
+          name: '',
+          slug: '',
+          description: '',
+          category: 'Living Room',
+          price: 0,
+          originalPrice: 0,
+          stock: 0,
+          images: [],
+          colors: [],
+          materials: '',
+          featured: false,
+        });
+      }
+    } catch (error) {
+      console.error('Error adding product:', error);
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
     if (confirm('Are you sure you want to delete this product?')) {
-      await supabase.from('products').delete().eq('id', id);
-      loadProducts();
+      try {
+        const res = await fetch(`/api/admin/products/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (res.ok) {
+          loadProducts();
+        }
+      } catch (error) {
+        console.error('Error deleting product:', error);
+      }
     }
   };
 
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
+      </div>
+    );
+  }
+
   const stats = [
-    { title: 'Total Revenue', value: `₹${orders.reduce((sum, o) => sum + o.total_amount, 0).toLocaleString()}`, icon: BarChart3 },
+    {
+      title: 'Total Revenue',
+      value: `₹${orders.reduce((sum, o) => sum + o.totalAmount, 0).toLocaleString()}`,
+      icon: BarChart3,
+    },
     { title: 'Total Orders', value: orders.length, icon: ShoppingBag },
     { title: 'Products Listed', value: products.length, icon: Package },
     { title: 'Active Customers', value: '0', icon: Users },
@@ -203,14 +282,18 @@ export default function AdminDashboard() {
                     <TableBody>
                       {orders.slice(0, 5).map((order) => (
                         <TableRow key={order.id}>
-                          <TableCell className="font-mono text-xs">{order.id.slice(0, 8)}</TableCell>
-                          <TableCell>₹{order.total_amount.toLocaleString()}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {order.id.slice(0, 8)}
+                          </TableCell>
+                          <TableCell>₹{order.totalAmount.toLocaleString()}</TableCell>
                           <TableCell>
                             <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
                               {order.status}
                             </span>
                           </TableCell>
-                          <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            {new Date(order.createdAt).toLocaleDateString()}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -240,14 +323,18 @@ export default function AdminDashboard() {
                         <Label>Product Name</Label>
                         <Input
                           value={newProduct.name}
-                          onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                          onChange={(e) =>
+                            setNewProduct({ ...newProduct, name: e.target.value })
+                          }
                         />
                       </div>
                       <div>
                         <Label>Slug</Label>
                         <Input
                           value={newProduct.slug}
-                          onChange={(e) => setNewProduct({ ...newProduct, slug: e.target.value })}
+                          onChange={(e) =>
+                            setNewProduct({ ...newProduct, slug: e.target.value })
+                          }
                           placeholder="product-name-slug"
                         />
                       </div>
@@ -255,7 +342,9 @@ export default function AdminDashboard() {
                         <Label>Description</Label>
                         <Textarea
                           value={newProduct.description}
-                          onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                          onChange={(e) =>
+                            setNewProduct({ ...newProduct, description: e.target.value })
+                          }
                           rows={3}
                         />
                       </div>
@@ -265,7 +354,9 @@ export default function AdminDashboard() {
                           <select
                             className="w-full border rounded-md px-3 py-2"
                             value={newProduct.category}
-                            onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                            onChange={(e) =>
+                              setNewProduct({ ...newProduct, category: e.target.value })
+                            }
                           >
                             <option>Living Room</option>
                             <option>Bedroom</option>
@@ -278,7 +369,9 @@ export default function AdminDashboard() {
                           <Label>Materials</Label>
                           <Input
                             value={newProduct.materials}
-                            onChange={(e) => setNewProduct({ ...newProduct, materials: e.target.value })}
+                            onChange={(e) =>
+                              setNewProduct({ ...newProduct, materials: e.target.value })
+                            }
                           />
                         </div>
                       </div>
@@ -288,15 +381,25 @@ export default function AdminDashboard() {
                           <Input
                             type="number"
                             value={newProduct.price}
-                            onChange={(e) => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) })}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                price: parseFloat(e.target.value),
+                              })
+                            }
                           />
                         </div>
                         <div>
                           <Label>Original Price</Label>
                           <Input
                             type="number"
-                            value={newProduct.original_price}
-                            onChange={(e) => setNewProduct({ ...newProduct, original_price: parseFloat(e.target.value) })}
+                            value={newProduct.originalPrice}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                originalPrice: parseFloat(e.target.value),
+                              })
+                            }
                           />
                         </div>
                         <div>
@@ -304,7 +407,12 @@ export default function AdminDashboard() {
                           <Input
                             type="number"
                             value={newProduct.stock}
-                            onChange={(e) => setNewProduct({ ...newProduct, stock: parseInt(e.target.value) })}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                stock: parseInt(e.target.value),
+                              })
+                            }
                           />
                         </div>
                       </div>
@@ -313,7 +421,10 @@ export default function AdminDashboard() {
                         <Input
                           placeholder="https://example.com/image.jpg, https://example.com/image2.jpg"
                           onChange={(e) =>
-                            setNewProduct({ ...newProduct, images: e.target.value.split(',').map((s) => s.trim()) })
+                            setNewProduct({
+                              ...newProduct,
+                              images: e.target.value.split(',').map((s) => s.trim()),
+                            })
                           }
                         />
                       </div>
@@ -322,7 +433,10 @@ export default function AdminDashboard() {
                         <Input
                           placeholder="beige, grey, brown"
                           onChange={(e) =>
-                            setNewProduct({ ...newProduct, colors: e.target.value.split(',').map((s) => s.trim()) })
+                            setNewProduct({
+                              ...newProduct,
+                              colors: e.target.value.split(',').map((s) => s.trim()),
+                            })
                           }
                         />
                       </div>
@@ -331,11 +445,16 @@ export default function AdminDashboard() {
                           type="checkbox"
                           id="featured"
                           checked={newProduct.featured}
-                          onChange={(e) => setNewProduct({ ...newProduct, featured: e.target.checked })}
+                          onChange={(e) =>
+                            setNewProduct({ ...newProduct, featured: e.target.checked })
+                          }
                         />
                         <Label htmlFor="featured">Featured Product</Label>
                       </div>
-                      <Button onClick={handleAddProduct} className="w-full bg-[#2C2C2C]">
+                      <Button
+                        onClick={handleAddProduct}
+                        className="w-full bg-[#2C2C2C]"
+                      >
                         Add Product
                       </Button>
                     </div>
@@ -418,15 +537,19 @@ export default function AdminDashboard() {
                   <TableBody>
                     {orders.map((order) => (
                       <TableRow key={order.id}>
-                        <TableCell className="font-mono text-xs">{order.id.slice(0, 8)}</TableCell>
-                        <TableCell>₹{order.total_amount.toLocaleString()}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {order.id.slice(0, 8)}
+                        </TableCell>
+                        <TableCell>₹{order.totalAmount.toLocaleString()}</TableCell>
                         <TableCell>
                           <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
                             {order.status}
                           </span>
                         </TableCell>
-                        <TableCell>{order.payment_method}</TableCell>
-                        <TableCell>{new Date(order.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>{order.paymentMethod || 'N/A'}</TableCell>
+                        <TableCell>
+                          {new Date(order.createdAt).toLocaleDateString()}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

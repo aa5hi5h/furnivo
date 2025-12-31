@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useRouter } from 'next/navigation';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -20,17 +20,24 @@ export default function AuthPage() {
     setLoading(true);
     setError('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: signInData.email,
-      password: signInData.password,
-    });
+    try {
+      const result = await signIn('credentials', {
+        email: signInData.email,
+        password: signInData.password,
+        redirect: false,
+      });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      router.push('/account');
+      if (result?.error) {
+        setError(result.error);
+      } else {
+        router.push('/account');
+        router.refresh();
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -38,21 +45,42 @@ export default function AuthPage() {
     setLoading(true);
     setError('');
 
-    const { data, error } = await supabase.auth.signUp({
-      email: signUpData.email,
-      password: signUpData.password,
-    });
-
-    if (error) {
-      setError(error.message);
-    } else if (data.user) {
-      await supabase.from('user_profiles').insert({
-        id: data.user.id,
-        full_name: signUpData.fullName,
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: signUpData.fullName,
+          email: signUpData.email,
+          password: signUpData.password,
+        }),
       });
-      router.push('/account');
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Failed to create account');
+        setLoading(false);
+        return;
+      }
+
+      const signInResult = await signIn('credentials', {
+        email: signUpData.email,
+        password: signUpData.password,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        setError('Account created but sign in failed. Please sign in manually.');
+      } else {
+        router.push('/account');
+        router.refresh();
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -81,6 +109,7 @@ export default function AuthPage() {
                     value={signInData.email}
                     onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div>
@@ -92,6 +121,7 @@ export default function AuthPage() {
                     value={signInData.password}
                     onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
                     required
+                    disabled={loading}
                   />
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
@@ -116,6 +146,7 @@ export default function AuthPage() {
                     value={signUpData.fullName}
                     onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div>
@@ -127,6 +158,7 @@ export default function AuthPage() {
                     value={signUpData.email}
                     onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
                     required
+                    disabled={loading}
                   />
                 </div>
                 <div>
@@ -139,6 +171,7 @@ export default function AuthPage() {
                     onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
                     required
                     minLength={6}
+                    disabled={loading}
                   />
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}

@@ -13,9 +13,31 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { supabase, type Product } from '@/lib/supabase';
 import { useCart } from '@/contexts/cart-context';
 import ProductCard from '@/components/product-card';
+
+type Product = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  category: string;
+  price: number;
+  originalPrice: number | null;
+  stock: number;
+  image: string;
+  images: string[];
+  colors: string[];
+  materials: string | null;
+  featured: boolean;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  collection?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+};
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -35,32 +57,36 @@ export default function ProductDetailPage() {
 
   const loadProduct = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('slug', slug)
-      .single();
+    try {
+      const response = await fetch(`/api/products/${slug}`);
+      const result = await response.json();
 
-    if (data) {
-      setProduct(data);
-      if (data.colors && data.colors.length > 0) {
-        setSelectedColor(data.colors[0]);
+      if (result.success && result.data) {
+        setProduct(result.data);
+        if (result.data.colors && result.data.colors.length > 0) {
+          setSelectedColor(result.data.colors[0]);
+        }
+        loadSimilarProducts(result.data.category, slug);
       }
-      loadSimilarProducts(data.category);
+    } catch (error) {
+      console.error('Error loading product:', error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const loadSimilarProducts = async (category: string) => {
-    const { data } = await supabase
-      .from('products')
-      .select('*')
-      .eq('category', category)
-      .neq('slug', slug)
-      .limit(4);
+  const loadSimilarProducts = async (category: string, currentSlug: string) => {
+    try {
+      const response = await fetch(`/api/products?category=${category}&limit=4`);
+      const result = await response.json();
 
-    if (data) {
-      setSimilarProducts(data);
+      if (result.success && result.data) {
+        // Filter out current product
+        const filtered = result.data.filter((p: Product) => p.slug !== currentSlug);
+        setSimilarProducts(filtered.slice(0, 4));
+      }
+    } catch (error) {
+      console.error('Error loading similar products:', error);
     }
   };
 
@@ -91,24 +117,33 @@ export default function ProductDetailPage() {
     );
   }
 
-  const discount = product.original_price
-    ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
+  const discount = product.originalPrice
+    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
+
+  // Mock rating and review count (you can add these to your schema later)
+  const rating = 4.5;
+  const reviewCount = 24;
 
   return (
     <div className="bg-white">
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-600 mb-8">
           <Link href="/" className="hover:text-[#C47456]">Home</Link>
           <ChevronRight className="w-4 h-4" />
-          <Link href={`/category/${product.category.toLowerCase().replace(' ', '-')}`} className="hover:text-[#C47456]">
+          <Link href="/products" className="hover:text-[#C47456]">Products</Link>
+          <ChevronRight className="w-4 h-4" />
+          <Link href={`/products?category=${encodeURIComponent(product.category)}`} className="hover:text-[#C47456]">
             {product.category}
           </Link>
           <ChevronRight className="w-4 h-4" />
           <span className="text-[#2C2C2C]">{product.name}</span>
         </div>
 
+        {/* Product Details Grid */}
         <div className="grid lg:grid-cols-2 gap-12 mb-16">
+          {/* Image Gallery */}
           <div>
             <div className="relative aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-4">
               {product.images[selectedImage] && (
@@ -121,7 +156,7 @@ export default function ProductDetailPage() {
               )}
             </div>
             <div className="grid grid-cols-4 gap-4">
-              {product.images.map((image:any, index:any) => (
+              {product.images.map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
@@ -135,26 +170,30 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
+          {/* Product Info */}
           <div>
             <h1 className="font-serif text-4xl font-bold mb-4">{product.name}</h1>
+            
+            {/* Rating */}
             <div className="flex items-center gap-4 mb-6">
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
                     className={`w-5 h-5 ${
-                      i < Math.round(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                      i < Math.round(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
                     }`}
                   />
                 ))}
               </div>
-              <span className="text-sm text-gray-600">({product.review_count} reviews)</span>
+              <span className="text-sm text-gray-600">({reviewCount} reviews)</span>
             </div>
 
+            {/* Price */}
             <div className="flex items-center gap-4 mb-6">
-              {product.original_price && (
+              {product.originalPrice && (
                 <span className="text-2xl text-gray-400 line-through">
-                  ₹{product.original_price.toLocaleString()}
+                  ₹{product.originalPrice.toLocaleString()}
                 </span>
               )}
               <span className="text-4xl font-bold">₹{product.price.toLocaleString()}</span>
@@ -165,17 +204,21 @@ export default function ProductDetailPage() {
               )}
             </div>
 
+            {/* Description */}
             <p className="text-gray-600 mb-8 leading-relaxed">{product.description}</p>
 
+            {/* Color Selection */}
             {product.colors && product.colors.length > 0 && (
               <div className="mb-6">
-                <label className="block text-sm font-semibold mb-3">Color</label>
+                <label className="block text-sm font-semibold mb-3">
+                  Color {selectedColor && `- ${selectedColor}`}
+                </label>
                 <div className="flex gap-3">
-                  {product.colors.map((color:any) => (
+                  {product.colors.map((color) => (
                     <button
                       key={color}
                       onClick={() => setSelectedColor(color)}
-                      className={`px-4 py-2 rounded-lg border-2 transition-all ${
+                      className={`px-4 py-2 rounded-lg border-2 transition-all capitalize ${
                         selectedColor === color
                           ? 'border-[#C47456] bg-[#C47456]/10'
                           : 'border-gray-300 hover:border-gray-400'
@@ -188,6 +231,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
+            {/* Quantity */}
             <div className="mb-6">
               <label className="block text-sm font-semibold mb-3">Quantity</label>
               <div className="flex items-center gap-4">
@@ -199,27 +243,36 @@ export default function ProductDetailPage() {
                 </button>
                 <span className="text-xl font-semibold w-12 text-center">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
                   className="w-10 h-10 rounded-lg border-2 border-gray-300 flex items-center justify-center hover:border-[#C47456]"
+                  disabled={quantity >= product.stock}
                 >
                   +
                 </button>
               </div>
+              {product.stock < 10 && (
+                <p className="text-sm text-orange-600 mt-2">
+                  Only {product.stock} items left in stock
+                </p>
+              )}
             </div>
 
+            {/* Action Buttons */}
             <div className="flex gap-4 mb-8">
               <Button
                 size="lg"
                 className="flex-1 bg-[#2C2C2C] hover:bg-[#2C2C2C]/90 text-lg py-6"
                 onClick={handleAddToCart}
+                disabled={product.stock === 0}
               >
-                Add to Cart
+                {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </Button>
               <Button size="lg" variant="outline" className="py-6">
                 <Heart className="w-5 h-5" />
               </Button>
             </div>
 
+            {/* Shipping Info */}
             <div className="bg-gray-50 p-6 rounded-lg mb-6">
               <div className="flex items-center gap-3 text-sm">
                 <Truck className="w-5 h-5 text-[#C47456]" />
@@ -227,10 +280,12 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
+            {/* Design Consultation Link */}
             <Link href="/design-services" className="text-[#C47456] hover:underline font-medium">
               Book Design Consultation →
             </Link>
 
+            {/* Product Details Accordion */}
             <Accordion type="single" collapsible className="mt-8">
               <AccordionItem value="details">
                 <AccordionTrigger>Product Details</AccordionTrigger>
@@ -239,6 +294,9 @@ export default function ProductDetailPage() {
                     <p><strong>Materials:</strong> {product.materials || 'Premium quality materials'}</p>
                     <p><strong>Category:</strong> {product.category}</p>
                     <p><strong>Stock:</strong> {product.stock} available</p>
+                    {product.collection && (
+                      <p><strong>Collection:</strong> {product.collection.name}</p>
+                    )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -270,28 +328,44 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
+        {/* Tabs Section */}
         <Tabs defaultValue="description" className="mb-16">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
             <TabsTrigger value="description">Description</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews ({product.review_count})</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews ({reviewCount})</TabsTrigger>
             <TabsTrigger value="similar">Similar</TabsTrigger>
           </TabsList>
           <TabsContent value="description" className="py-8">
             <div className="max-w-3xl mx-auto prose prose-lg">
               <p>{product.description}</p>
+              {product.materials && (
+                <div className="mt-6">
+                  <h3 className="font-semibold mb-2">Materials</h3>
+                  <p>{product.materials}</p>
+                </div>
+              )}
             </div>
           </TabsContent>
           <TabsContent value="reviews" className="py-8">
             <div className="max-w-3xl mx-auto text-center">
               <p className="text-gray-600">No reviews yet. Be the first to review this product!</p>
+              <Button className="mt-4" variant="outline">
+                Write a Review
+              </Button>
             </div>
           </TabsContent>
           <TabsContent value="similar" className="py-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {similarProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            {similarProducts.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {similarProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-600">
+                No similar products found
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>

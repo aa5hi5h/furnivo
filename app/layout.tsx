@@ -5,6 +5,7 @@ import { CartProvider } from "../contexts/cart-context";
 import Header from "@/components/header";
 import CartPanel from "@/components/cart-pannel";
 import Footer from "@/components/footer";
+import { Providers } from "./provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,12 +32,14 @@ export default function RootLayout({
   return (
      <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} font-sans`}>
+        <Providers>
         <CartProvider>
           <Header />
           <main className="min-h-screen">{children}</main>
           <Footer />
           <CartPanel />
         </CartProvider>
+        </Providers>
       </body>
     </html>
   );

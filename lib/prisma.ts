@@ -1,3 +1,4 @@
+import 'dotenv/config';
 let prismaInstance: any = null;
 
 if (typeof globalThis !== 'undefined' && (globalThis as any).prismaInstance) {

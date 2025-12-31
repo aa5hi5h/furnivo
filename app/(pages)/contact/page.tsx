@@ -16,9 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
 
 const subjects = [
   'General Inquiry',
@@ -79,6 +77,7 @@ export default function ContactPage() {
   const [selectedSubject, setSelectedSubject] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [referenceNumber, setReferenceNumber] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -97,23 +96,41 @@ export default function ContactPage() {
       return;
     }
 
+    if (!selectedSubject) {
+      toast.error('Please select a subject');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { error } = await supabase.from('contact_inquiries').insert([
-        {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           name: formData.name,
           email: formData.email,
           phone: formData.phone || null,
           subject: selectedSubject,
-          order_number: formData.orderNumber || null,
+          orderNumber: formData.orderNumber || null,
           message: formData.message,
-          status: 'new',
-        },
-      ]);
+        }),
+      });
 
-      if (error) throw error;
+      const result = await response.json();
 
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit message');
+      }
+
+      // Generate reference number
+      const refNum = `CT-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+      setReferenceNumber(refNum);
       setIsSubmitted(true);
+      toast.success('Message sent successfully!');
+
+      // Reset form after 5 seconds
       setTimeout(() => {
         setFormData({
           name: '',
@@ -126,10 +143,11 @@ export default function ContactPage() {
         });
         setSelectedSubject('');
         setIsSubmitted(false);
+        setReferenceNumber('');
       }, 5000);
     } catch (error) {
       console.error('Error submitting form:', error);
-      toast.error('Failed to submit message. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to submit message. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -139,14 +157,14 @@ export default function ContactPage() {
     return (
       <div className="min-h-screen flex flex-col">
         <div className="bg-gradient-to-b from-gray-100 to-white py-12">
-          <div className="max-w-7xl  mx-auto px-4 sm:px-6 lg:px-8">
-             <div className="flex items-center gap-2 text-sm text-gray-600 mb-8">
-                   <Link href="/" className="hover:text-[#C47456]">Home</Link>
-                   <ChevronRight className="w-4 h-4" />
-                   <Link href="/contact" className="hover:text-[#C47456]">
-                     Contact
-                   </Link>
-                 </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-2 text-sm text-gray-600 mb-8">
+              <Link href="/" className="hover:text-[#C47456]">Home</Link>
+              <ChevronRight className="w-4 h-4" />
+              <Link href="/contact" className="hover:text-[#C47456]">
+                Contact
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -161,7 +179,7 @@ export default function ContactPage() {
             <p className="text-gray-600 mb-4">
               Thank you for contacting us. We've received your message and will respond within 24 hours to <strong>{formData.email}</strong>.
             </p>
-            <p className="text-sm text-gray-500 mb-6">Reference #: CT-{Math.random().toString(36).substring(2, 9).toUpperCase()}</p>
+            <p className="text-sm text-gray-500 mb-6">Reference #: {referenceNumber}</p>
             <div className="space-y-3">
               <Button onClick={() => setIsSubmitted(false)} className="w-full">
                 Send Another Message
@@ -182,12 +200,12 @@ export default function ContactPage() {
       <div className="bg-gradient-to-b from-gray-100 to-white py-12 border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 text-sm text-gray-600 mb-8">
-                   <Link href="/" className="hover:text-[#C47456]">Home</Link>
-                   <ChevronRight className="w-4 h-4" />
-                   <Link href="/contact" className="hover:text-[#C47456]">
-                     Contact
-                   </Link>
-                 </div>
+            <Link href="/" className="hover:text-[#C47456]">Home</Link>
+            <ChevronRight className="w-4 h-4" />
+            <Link href="/contact" className="hover:text-[#C47456]">
+              Contact
+            </Link>
+          </div>
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-3">Get In Touch</h1>
           <p className="text-lg text-gray-600">We're here to help. Reach out and we'll respond within 24 hours.</p>
         </div>
@@ -253,7 +271,7 @@ export default function ContactPage() {
                   <Label htmlFor="subject" className="mb-2">
                     Subject *
                   </Label>
-                  <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                  <Select value={selectedSubject} onValueChange={setSelectedSubject} required>
                     <SelectTrigger id="subject">
                       <SelectValue placeholder="Select a subject" />
                     </SelectTrigger>
@@ -296,6 +314,7 @@ export default function ContactPage() {
                     onChange={handleInputChange}
                     rows={6}
                     required
+                    maxLength={500}
                   />
                   <p className="text-sm text-gray-500 mt-2">{formData.message.length}/500 characters</p>
                 </div>

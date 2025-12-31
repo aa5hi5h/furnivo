@@ -1,77 +1,87 @@
-import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
-export async function GET(request: Request) {
+// POST - Create new order
+export async function POST(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 }
-      );
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orders = await prisma.order.findMany({
-      where: {
-        user_id: userId,
-      },
-      orderBy: {
-        created_at: "desc",
-      },
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
     });
 
-    return NextResponse.json(orders);
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch orders" },
-      { status: 500 }
-    );
-  }
-}
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
+    const body = await req.json();
     const {
-      userId,
-      status,
-      total_amount,
-      shipping_address,
-      payment_method,
-      payment_status,
-      delivery_option,
-      notes,
+      shippingAddress,
+      paymentMethod,
+      deliveryOption,
+      totalAmount,
+      items,
     } = body;
 
-    if (!userId || !total_amount) {
+    // Validation
+    if (!shippingAddress || !paymentMethod || !totalAmount || !items || items.length === 0) {
       return NextResponse.json(
-        { error: "User ID and total amount are required" },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
+    // Create address if needed
+    let addressId = null;
+    if (shippingAddress) {
+      const address = await prisma.address.create({
+        data: {
+          userId: user.id,
+          street: shippingAddress.address,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postalCode: shippingAddress.pincode,
+          country: 'India',
+          isDefault: false,
+        },
+      });
+      addressId = address.id;
+    }
+
+    // Create order
     const order = await prisma.order.create({
       data: {
-        user_id: userId,
-        status: status || "pending",
-        total_amount,
-        shipping_address: shipping_address || {},
-        payment_method: payment_method || "",
-        payment_status: payment_status || "pending",
-        delivery_option: delivery_option || "",
-        notes: notes || "",
+        userId: user.id,
+        status: 'pending',
+        totalAmount,
+        paymentMethod,
+        addressId,
+        orderItems: {
+          create: items.map((item: any) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+        },
+      },
+      include: {
+        orderItems: {
+          include: {
+            product: true,
+          },
+        },
       },
     });
 
-    return NextResponse.json(order);
+    return NextResponse.json(order, { status: 201 });
   } catch (error) {
-    console.error("Error creating order:", error);
-    return NextResponse.json(
-      { error: "Failed to create order" },
-      { status: 500 }
-    );
+    console.error('Error creating order:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

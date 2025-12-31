@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { Video, Home, Zap } from 'lucide-react';
 
@@ -77,16 +76,25 @@ export default function DesignServicesPage() {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('design_services_bookings')
-        .insert([formData]);
+      const response = await fetch('/api/design-services', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit request');
+      }
 
       toast({
         title: 'Success',
         description: 'Your design consultation request has been submitted. We will contact you soon!',
       });
+
       setShowBookingModal(false);
       setFormData({
         name: '',
@@ -102,7 +110,8 @@ export default function DesignServicesPage() {
       console.error('Error submitting form:', error);
       toast({
         title: 'Error',
-        description: 'Failed to submit your request. Please try again.',
+        description: error instanceof Error ? error.message : 'Failed to submit your request. Please try again.',
+        variant: 'error',
       });
     } finally {
       setIsSubmitting(false);
@@ -121,7 +130,10 @@ export default function DesignServicesPage() {
             <p className="text-xl text-white/90 mb-6">
               Transform your space with expert guidance from our award-winning design team. From virtual consultations to complete room makeovers, we have the perfect solution for you.
             </p>
-            <Button className="bg-white text-[#2C2C2C] hover:bg-gray-100 text-lg">
+            <Button
+              onClick={() => handleBooking('virtual')}
+              className="bg-white text-[#2C2C2C] hover:bg-gray-100 text-lg"
+            >
               Get Started
             </Button>
           </div>
@@ -256,25 +268,26 @@ export default function DesignServicesPage() {
 
       {/* Booking Modal */}
       <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Book Your Design Consultation</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="name">Full Name *</Label>
               <Input
                 id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
                 required
+                placeholder="John Doe"
               />
             </div>
 
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <Input
                 id="email"
                 name="email"
@@ -282,17 +295,19 @@ export default function DesignServicesPage() {
                 value={formData.email}
                 onChange={handleInputChange}
                 required
+                placeholder="john@example.com"
               />
             </div>
 
             <div>
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">Phone *</Label>
               <Input
                 id="phone"
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
                 required
+                placeholder="9876543210"
               />
             </div>
 
@@ -319,7 +334,22 @@ export default function DesignServicesPage() {
                 type="date"
                 value={formData.preferred_date}
                 onChange={handleInputChange}
+                min={new Date().toISOString().split('T')[0]}
               />
+            </div>
+
+            <div>
+              <Label htmlFor="preferred_time">Preferred Time</Label>
+              <Select value={formData.preferred_time} onValueChange={(value) => handleSelectChange('preferred_time', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="morning">Morning (9 AM - 12 PM)</SelectItem>
+                  <SelectItem value="afternoon">Afternoon (12 PM - 3 PM)</SelectItem>
+                  <SelectItem value="evening">Evening (3 PM - 6 PM)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

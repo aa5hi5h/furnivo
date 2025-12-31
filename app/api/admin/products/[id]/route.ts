@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-// DELETE - Remove item from cart
+// DELETE product
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -15,19 +15,19 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await prisma.cartItem.delete({
+    await prisma.product.delete({
       where: { id: params.id },
     });
 
-    return NextResponse.json({ message: 'Item removed from cart' });
+    return NextResponse.json({ message: 'Product deleted successfully' });
   } catch (error) {
-    console.error('Error removing from cart:', error);
+    console.error('Error deleting product:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// PATCH - Update cart item quantity
-export async function PATCH(
+// PUT update product
+export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -39,24 +39,41 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { quantity } = body;
+    const {
+      name,
+      slug,
+      description,
+      category,
+      price,
+      originalPrice,
+      stock,
+      images,
+      colors,
+      materials,
+      featured,
+    } = body;
 
-    if (!quantity || quantity < 1) {
-      return NextResponse.json(
-        { error: 'Invalid quantity' },
-        { status: 400 }
-      );
-    }
-
-    const cartItem = await prisma.cartItem.update({
+    const product = await prisma.product.update({
       where: { id: params.id },
-      data: { quantity },
-      include: { product: true },
+      data: {
+        name,
+        slug,
+        description,
+        category,
+        price,
+        originalPrice,
+        stock,
+        image: images[0] || '',
+        images: images || [],
+        colors: colors || [],
+        materials,
+        featured: featured || false,
+      },
     });
 
-    return NextResponse.json(cartItem);
+    return NextResponse.json(product);
   } catch (error) {
-    console.error('Error updating cart item:', error);
+    console.error('Error updating product:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

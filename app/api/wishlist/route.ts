@@ -15,14 +15,30 @@ export async function GET(request: Request) {
 
     const wishlistItems = await prisma.wishlistItem.findMany({
       where: {
-        user_id: userId,
+        userId: userId, // Changed from user_id
       },
       include: {
-        product: true,
+        product: {
+          include: {
+            collection: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
 
-    return NextResponse.json(wishlistItems);
+    return NextResponse.json({
+      success: true,
+      data: wishlistItems,
+    });
   } catch (error) {
     console.error("Error fetching wishlist:", error);
     return NextResponse.json(
@@ -44,10 +60,11 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if item already exists
     const existing = await prisma.wishlistItem.findFirst({
       where: {
-        user_id: userId,
-        product_id: productId,
+        userId: userId, // Changed from user_id
+        productId: productId, // Changed from product_id
       },
     });
 
@@ -60,15 +77,29 @@ export async function POST(request: Request) {
 
     const wishlistItem = await prisma.wishlistItem.create({
       data: {
-        user_id: userId,
-        product_id: productId,
+        userId: userId, // Changed from user_id
+        productId: productId, // Changed from product_id
       },
       include: {
-        product: true,
+        product: {
+          include: {
+            collection: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    return NextResponse.json(wishlistItem);
+    return NextResponse.json({
+      success: true,
+      data: wishlistItem,
+      message: 'Added to wishlist',
+    });
   } catch (error) {
     console.error("Error adding to wishlist:", error);
     return NextResponse.json(

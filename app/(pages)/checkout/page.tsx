@@ -2,21 +2,35 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCart } from '@/contexts/cart-context';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { CheckCircle2 } from 'lucide-react';
 
+interface CartItem {
+  id: string;
+  productId: string;
+  quantity: number;
+  selectedColor?: string;
+  product: {
+    id: string;
+    name: string;
+    price: number;
+    images: string[];
+  };
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, cartTotal, user, clearCart } = useCart();
+  const { data: session, status } = useSession();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartTotal, setCartTotal] = useState(0);
 
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -34,46 +48,77 @@ export default function CheckoutPage() {
   const shippingCost = deliveryOption === 'express' ? 2000 : 0;
   const total = cartTotal + shippingCost;
 
+  // Load cart on mount
+  useState(() => {
+    if (status === 'authenticated') {
+      loadCart();
+    }
+  });
+
+  const loadCart = async () => {
+    try {
+      const res = await fetch('/api/cart');
+      if (res.ok) {
+        const data = await res.json();
+        setCart(data.items);
+        setCartTotal(data.total);
+      }
+    } catch (error) {
+      console.error('Error loading cart:', error);
+    }
+  };
+
   const handlePlaceOrder = async () => {
-    if (!user) {
+    if (!session?.user) {
       router.push('/auth');
       return;
     }
 
     setLoading(true);
 
-    const { data: order, error } = await supabase
-      .from('orders')
-      .insert({
-        user_id: user.id,
-        total_amount: total,
-        shipping_address: shippingInfo,
-        payment_method: paymentMethod,
-        delivery_option: deliveryOption,
-        status: 'pending',
-        payment_status: 'pending',
-      })
-      .select()
-      .single();
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shippingAddress: shippingInfo,
+          paymentMethod,
+          deliveryOption,
+          totalAmount: total,
+          items: cart.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.product.price,
+            selectedColor: item.selectedColor,
+          })),
+        }),
+      });
 
-    if (!error && order) {
-      const orderItems = cart.map((item:any) => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        quantity: item.quantity,
-        price: item.product.price,
-        selected_color: item.selected_color,
-      }));
-
-      await supabase.from('order_items').insert(orderItems);
-      await clearCart();
-      setStep(4);
+      if (res.ok) {
+        // Clear cart after successful order
+        await fetch('/api/cart', { method: 'DELETE' });
+        setStep(4);
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to place order');
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      alert('Failed to place order. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  if (!user) {
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
+      </div>
+    );
+  }
+
+  if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -102,15 +147,27 @@ export default function CheckoutPage() {
 
         <div className="flex items-center justify-center mb-12">
           <div className="flex items-center">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 1 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'}`}>
+            <div
+              className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                step >= 1 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'
+              }`}
+            >
               1
             </div>
             <div className={`w-24 h-1 ${step >= 2 ? 'bg-[#2C2C2C]' : 'bg-gray-300'}`} />
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 2 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'}`}>
+            <div
+              className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                step >= 2 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'
+              }`}
+            >
               2
             </div>
             <div className={`w-24 h-1 ${step >= 3 ? 'bg-[#2C2C2C]' : 'bg-gray-300'}`} />
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full ${step >= 3 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'}`}>
+            <div
+              className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                step >= 3 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'
+              }`}
+            >
               3
             </div>
           </div>
@@ -127,7 +184,9 @@ export default function CheckoutPage() {
                       <Label>Full Name</Label>
                       <Input
                         value={shippingInfo.fullName}
-                        onChange={(e:any) => setShippingInfo({ ...shippingInfo, fullName: e.target.value })}
+                        onChange={(e) =>
+                          setShippingInfo({ ...shippingInfo, fullName: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -136,7 +195,9 @@ export default function CheckoutPage() {
                       <Input
                         type="tel"
                         value={shippingInfo.phone}
-                        onChange={(e:any) => setShippingInfo({ ...shippingInfo, phone: e.target.value })}
+                        onChange={(e) =>
+                          setShippingInfo({ ...shippingInfo, phone: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -145,7 +206,9 @@ export default function CheckoutPage() {
                       <Input
                         type="email"
                         value={shippingInfo.email}
-                        onChange={(e:any) => setShippingInfo({ ...shippingInfo, email: e.target.value })}
+                        onChange={(e) =>
+                          setShippingInfo({ ...shippingInfo, email: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -153,7 +216,9 @@ export default function CheckoutPage() {
                       <Label>Address</Label>
                       <Input
                         value={shippingInfo.address}
-                        onChange={(e:any) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
+                        onChange={(e) =>
+                          setShippingInfo({ ...shippingInfo, address: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -161,7 +226,9 @@ export default function CheckoutPage() {
                       <Label>City</Label>
                       <Input
                         value={shippingInfo.city}
-                        onChange={(e:any) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
+                        onChange={(e) =>
+                          setShippingInfo({ ...shippingInfo, city: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -169,7 +236,9 @@ export default function CheckoutPage() {
                       <Label>State</Label>
                       <Input
                         value={shippingInfo.state}
-                        onChange={(e:any) => setShippingInfo({ ...shippingInfo, state: e.target.value })}
+                        onChange={(e) =>
+                          setShippingInfo({ ...shippingInfo, state: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -177,7 +246,9 @@ export default function CheckoutPage() {
                       <Label>Pincode</Label>
                       <Input
                         value={shippingInfo.pincode}
-                        onChange={(e:any) => setShippingInfo({ ...shippingInfo, pincode: e.target.value })}
+                        onChange={(e) =>
+                          setShippingInfo({ ...shippingInfo, pincode: e.target.value })
+                        }
                         required
                       />
                     </div>
@@ -296,7 +367,9 @@ export default function CheckoutPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{item.product.name}</p>
                       <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
-                      <p className="text-sm font-bold">₹{(item.product.price * item.quantity).toLocaleString()}</p>
+                      <p className="text-sm font-bold">
+                        ₹{(item.product.price * item.quantity).toLocaleString()}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -309,7 +382,9 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex justify-between">
                   <span>Shipping</span>
-                  <span>{shippingCost === 0 ? 'FREE' : `₹${shippingCost.toLocaleString()}`}</span>
+                  <span>
+                    {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toLocaleString()}`}
+                  </span>
                 </div>
                 <Separator className="my-2" />
                 <div className="flex justify-between text-lg font-bold">
@@ -322,5 +397,5 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }
