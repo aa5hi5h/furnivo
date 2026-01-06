@@ -29,6 +29,8 @@ interface Product {
     name: string;
     slug: string;
   } | null;
+  rating: number;
+  reviewCount: number ;
 }
 
 interface WishlistItem {

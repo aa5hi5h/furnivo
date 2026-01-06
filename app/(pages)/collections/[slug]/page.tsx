@@ -4,22 +4,20 @@ import { useState, useEffect, use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, Eye, Heart, ShoppingCart } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/contexts/cart-context';
 import { QuickViewModal } from '@/components/quick-view-modal';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 interface Collection {
   id: string;
   name: string;
   slug: string;
-  image_url: string;
-  hero_image_url?: string;
-  description: string;
-  inspiration_text?: string;
-  designer_quote?: string;
-  designer_name?: string;
+  imageUrl: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Product {
@@ -27,12 +25,27 @@ interface Product {
   name: string;
   slug: string;
   price: number;
-  original_price?: number;
+  originalPrice: number | null;
   images: string[];
-  colors?: string[];
-  rating: number;
-  review_count: number;
+  colors: string[];
+  rating: number | null;
+  reviewCount: number | null;
   stock: number;
+  description: string | null;
+  category: string;
+  materials: string | null;
+  featured: boolean;
+}
+
+interface CollectionResponse {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  products: Product[];
 }
 
 export default function CollectionDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -45,6 +58,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
   const [showQuickView, setShowQuickView] = useState(false);
   const { toast } = useToast();
   const { addToCart } = useCart();
+  const { data: session } = useSession();
 
   const { slug } = use(params);
 
@@ -55,36 +69,123 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
   const fetchCollectionAndProducts = async () => {
     try {
       setLoading(true);
-      const { data: collectionData, error: collectionError } = await supabase
-        .from('collections')
-        .select('*')
-        .eq('slug', slug)
-        .single()
+      const response = await fetch(`/api/collections/${slug}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch collection');
+      }
 
-      if (collectionError) throw collectionError;
-      setCollection(collectionData as Collection);
-
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('collection_id', collectionData.id);
-
-      if (productsError) throw productsError;
-      setProducts((productsData || []) as Product[]);
+      const data: CollectionResponse = await response.json();
+      
+      setCollection({
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        imageUrl: data.imageUrl,
+        description: data.description,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      });
+      
+      setProducts(data.products || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast({ title: 'Error', description: 'Failed to load collection' });
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to load collection',
+        variant: 'destructive'
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleAddToWishlist = async (productId: string) => {
+    if (!session?.user) {
+      toast({ 
+        title: 'Authentication required', 
+        description: 'Please sign in to add items to your wishlist',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    try {
+      // Get userId from session - adjust based on your session structure
+      const userId = (session.user as any).id;
+      
+      if (!userId) {
+        toast({ 
+          title: 'Error', 
+          description: 'User ID not found',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      const response = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, productId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add to wishlist');
+      }
+
+      toast({ 
+        title: 'Success', 
+        description: data.message || 'Added to wishlist' 
+      });
+    } catch (error: any) {
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to add to wishlist',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const sortedProducts = [...products].sort((a, b) => {
+    switch (sortBy) {
+      case 'price-low':
+        return a.price - b.price;
+      case 'price-high':
+        return b.price - a.price;
+      case 'name':
+        return a.name.localeCompare(b.name);
+      default:
+        // Featured items first
+        if (a.featured && !b.featured) return -1;
+        if (!a.featured && b.featured) return 1;
+        return 0;
+    }
+  });
+
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!collection) {
-    return <div className="flex items-center justify-center h-screen">Collection not found</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Collection not found</h2>
+          <Link href="/collections" className="text-[#C47456] hover:underline">
+            Browse all collections
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const toggleSection = (section: string) => {
@@ -102,29 +203,34 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
     toast({ title: 'Added to cart', description: 'Product added successfully' });
   };
 
-  const handleAddToWishlist = (productId: string) => {
-    toast({ title: 'Added to wishlist', description: 'Product saved to wishlist' });
-  };
-
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <div
         className="relative w-full h-[80vh] bg-cover bg-center"
-        style={{ backgroundImage: `url('${collection.hero_image_url || collection.image_url}')` }}
+        style={{ backgroundImage: `url('${collection.imageUrl}')` }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/60" />
-        <div className="absolute top-4 left-4 text-white text-sm">Home {'\u003E'} Collections {'\u003E'} {collection.name}</div>
+        <div className="absolute top-4 left-4 text-white text-sm">
+          <Link href="/" className="hover:underline">Home</Link>
+          {' > '}
+          <Link href="/collections" className="hover:underline">Collections</Link>
+          {' > '}
+          {collection.name}
+        </div>
         <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-16">
           <p className="text-white text-sm uppercase tracking-wider mb-4">COLLECTION 2025</p>
           <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-4">
             {collection.name}
           </h1>
           <p className="text-white text-xl max-w-xl mb-8">
-            {collection.description}
+            {collection.description || 'Discover our curated collection of premium furniture'}
           </p>
           <div className="flex gap-4">
-            <Button className="bg-white text-[#2C2C2C] hover:bg-[#C47456] hover:text-white">
+            <Button 
+              onClick={() => document.getElementById('products-section')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-white text-[#2C2C2C] hover:bg-[#C47456] hover:text-white"
+            >
               Shop Collection
             </Button>
             <Button variant="outline" className="border-white text-white hover:bg-white/20">
@@ -143,19 +249,13 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
               Organic Forms, Timeless Comfort
             </h2>
             <div className="space-y-4 text-gray-700 leading-relaxed">
-              <p>{collection.inspiration_text || 'Discover the story behind this beautiful collection...'}</p>
+              <p>{collection.description || 'Discover the story behind this beautiful collection...'}</p>
               <p>Each piece is handcrafted with attention to detail and using sustainable materials.</p>
             </div>
-            {collection.designer_quote && (
-              <div className="mt-8 p-6 bg-gray-100 border-l-4 border-[#C47456]">
-                <p className="text-gray-700 italic mb-2">"{collection.designer_quote}"</p>
-                <p className="text-gray-600 text-sm">— {collection.designer_name || 'Designer'}</p>
-              </div>
-            )}
           </div>
           <div className="bg-gray-200 aspect-video rounded-lg overflow-hidden">
             <img
-              src={collection.image_url}
+              src={collection.imageUrl}
               alt={collection.name}
               className="w-full h-full object-cover"
             />
@@ -184,7 +284,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
         </div>
 
         {/* Products Section */}
-        <div className="py-16 px-4">
+        <div id="products-section" className="py-16 px-4">
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-4xl font-serif font-bold text-gray-900">Explore the Collection</h2>
             <Select value={sortBy} onValueChange={setSortBy}>
@@ -195,14 +295,15 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
                 <SelectItem value="featured">Featured</SelectItem>
                 <SelectItem value="price-low">Price: Low to High</SelectItem>
                 <SelectItem value="price-high">Price: High to Low</SelectItem>
+                <SelectItem value="name">Name: A to Z</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {products.map(product => {
-              const discount = product.original_price
-                ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
+            {sortedProducts.map(product => {
+              const discount = product.originalPrice
+                ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
                 : 0;
 
               return (
@@ -218,12 +319,20 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gray-200" />
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400">
+                        No Image
+                      </div>
                     )}
 
                     {discount > 0 && (
                       <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded text-sm font-bold">
                         -{discount}%
+                      </div>
+                    )}
+
+                    {product.stock === 0 && (
+                      <div className="absolute top-3 left-3 bg-gray-800 text-white px-2 py-1 rounded text-sm font-bold">
+                        Out of Stock
                       </div>
                     )}
 
@@ -233,13 +342,15 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
                           setQuickViewProduct(product);
                           setShowQuickView(true);
                         }}
-                        className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white"
+                        className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
+                        aria-label="Quick view"
                       >
                         <Eye size={20} />
                       </button>
                       <button
                         onClick={() => handleAddToWishlist(product.id)}
-                        className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white"
+                        className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
+                        aria-label="Add to wishlist"
                       >
                         <Heart size={20} />
                       </button>
@@ -253,24 +364,32 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
                       </Link>
                     </h3>
 
+                    {product.rating && product.reviewCount ? (
+                      <div className="flex items-center gap-1 mb-2 text-sm">
+                        <span className="text-yellow-500">★</span>
+                        <span className="text-gray-600">{product.rating.toFixed(1)}</span>
+                        <span className="text-gray-400">({product.reviewCount})</span>
+                      </div>
+                    ) : null}
+
                     <div className="flex items-center gap-2 mb-3">
                       <span className="font-bold text-gray-900">
                         ₹{product.price.toLocaleString('en-IN')}
                       </span>
-                      {product.original_price && (
+                      {product.originalPrice && (
                         <span className="text-sm text-gray-400 line-through">
-                          ₹{product.original_price.toLocaleString('en-IN')}
+                          ₹{product.originalPrice.toLocaleString('en-IN')}
                         </span>
                       )}
                     </div>
 
                     <Button
-                      onClick={() => handleAddToCart(product.id, '', 1)}
+                      onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
                       disabled={product.stock === 0}
-                      className="w-full bg-[#2C2C2C] hover:bg-[#C47456] text-white mt-auto"
+                      className="w-full bg-[#2C2C2C] hover:bg-[#C47456] text-white mt-auto disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ShoppingCart size={18} className="mr-2" />
-                      Add to Cart
+                      {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                     </Button>
                   </div>
                 </div>
@@ -278,9 +397,9 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
             })}
           </div>
 
-          {products.length === 0 && (
+          {sortedProducts.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-gray-500">No products in this collection yet.</p>
+              <p className="text-gray-500 text-lg">No products in this collection yet.</p>
             </div>
           )}
         </div>
@@ -313,7 +432,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
               <button
                 key={section}
                 onClick={() => toggleSection(section)}
-                className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+                className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <span className="font-semibold text-gray-900">{section}</span>
                 <ChevronDown

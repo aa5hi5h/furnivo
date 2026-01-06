@@ -1,20 +1,17 @@
-import 'dotenv/config';
-let prismaInstance: any = null;
+import { PrismaClient } from '@prisma/client'
 
-if (typeof globalThis !== 'undefined' && (globalThis as any).prismaInstance) {
-  prismaInstance = (globalThis as any).prismaInstance;
-} else {
-  try {
-    const { PrismaClient } = require('./generated/prisma/client');
-    prismaInstance = new PrismaClient({});
-    if (typeof globalThis !== 'undefined') {
-      (globalThis as any).prismaInstance = prismaInstance;
-    }
-  } catch (error) {
-    console.error('Failed to initialize Prisma:', error);
-    prismaInstance = {} as any;
-  }
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined
 }
 
-export const prisma = prismaInstance;
-export default prisma;
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  })
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
+
+export default prisma

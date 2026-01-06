@@ -4,11 +4,13 @@ import { prisma } from '@/lib/prisma';
 // GET - Get collection by slug with products
 export async function GET(
   req: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> } // Changed: params is now a Promise
 ) {
   try {
+    const { slug } = await params; // Added: await params
+    
     const collection = await prisma.collection.findUnique({
-      where: { slug: params.slug },
+      where: { slug },
       include: {
         products: {
           orderBy: { createdAt: 'desc' },
@@ -33,11 +35,13 @@ export async function GET(
 // DELETE - Delete collection (Admin only)
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> } // Changed: params is now a Promise
 ) {
   try {
+    const { slug } = await params; // Added: await params
+    
     await prisma.collection.delete({
-      where: { slug: params.slug },
+      where: { slug },
     });
 
     return NextResponse.json({ message: 'Collection deleted successfully' });
