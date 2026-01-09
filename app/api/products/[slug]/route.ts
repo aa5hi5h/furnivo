@@ -3,12 +3,13 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug } = await params;
     const product = await prisma.product.findUnique({
       where: {
-        slug: params.slug,
+        slug: slug,
       },
       include: {
         collection: {
@@ -44,7 +45,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params:Promise<{ slug: string }> }
 ) {
   try {
     // Optional: Add authentication check for admin
@@ -55,9 +56,11 @@ export async function PATCH(
 
     const body = await request.json();
 
+    const {slug} = await params
+
     const product = await prisma.product.update({
       where: {
-        slug: params.slug,
+        slug: slug,
       },
       data: {
         ...body,
@@ -85,7 +88,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
     // Optional: Add authentication check for admin
@@ -94,9 +97,11 @@ export async function DELETE(
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     // }
 
+    const {slug} = await params
+
     await prisma.product.delete({
       where: {
-        slug: params.slug,
+        slug: slug,
       },
     });
 

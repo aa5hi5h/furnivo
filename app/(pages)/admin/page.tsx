@@ -63,6 +63,152 @@ interface Order {
   createdAt: string;
 }
 
+const initialProductState = {
+  name: '',
+  slug: '',
+  description: '',
+  category: 'Living Room',
+  price: 0,
+  originalPrice: 0,
+  stock: 0,
+  images: [] as string[],
+  colors: [] as string[],
+  materials: '',
+  featured: false,
+};
+
+
+const ProductForm = ({
+  product,
+  setProduct,
+  onSubmit,
+  submitLabel,
+}: {
+  product: typeof initialProductState;
+  setProduct: React.Dispatch<React.SetStateAction<typeof initialProductState>>;
+  onSubmit: () => void;
+  submitLabel: string;
+}) => (
+  <div className="space-y-4">
+    <div>
+      <Label>Product Name</Label>
+      <Input
+        value={product.name}
+        onChange={(e) => setProduct({ ...product, name: e.target.value })}
+      />
+    </div>
+    <div>
+      <Label>Slug</Label>
+      <Input
+        value={product.slug}
+        onChange={(e) => setProduct({ ...product, slug: e.target.value })}
+        placeholder="product-name-slug"
+      />
+    </div>
+    <div>
+      <Label>Description</Label>
+      <Textarea
+        value={product.description}
+        onChange={(e) => setProduct({ ...product, description: e.target.value })}
+        rows={3}
+      />
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <Label>Category</Label>
+        <select
+          className="w-full border rounded-md px-3 py-2"
+          value={product.category}
+          onChange={(e) => setProduct({ ...product, category: e.target.value })}
+        >
+          <option>Living Room</option>
+          <option>Bedroom</option>
+          <option>Dining</option>
+          <option>Office</option>
+          <option>Outdoor</option>
+        </select>
+      </div>
+      <div>
+        <Label>Materials</Label>
+        <Input
+          value={product.materials}
+          onChange={(e) => setProduct({ ...product, materials: e.target.value })}
+        />
+      </div>
+    </div>
+    <div className="grid grid-cols-3 gap-4">
+      <div>
+        <Label>Price</Label>
+        <Input
+          type="number"
+          value={product.price}
+          onChange={(e) =>
+            setProduct({ ...product, price: parseFloat(e.target.value) || 0 })
+          }
+        />
+      </div>
+      <div>
+        <Label>Original Price</Label>
+        <Input
+          type="number"
+          value={product.originalPrice}
+          onChange={(e) =>
+            setProduct({ ...product, originalPrice: parseFloat(e.target.value) || 0 })
+          }
+        />
+      </div>
+      <div>
+        <Label>Stock</Label>
+        <Input
+          type="number"
+          value={product.stock}
+          onChange={(e) =>
+            setProduct({ ...product, stock: parseInt(e.target.value) || 0 })
+          }
+        />
+      </div>
+    </div>
+    <div>
+      <Label>Image URLs (comma-separated)</Label>
+      <Input
+        placeholder="https://example.com/image.jpg, https://example.com/image2.jpg"
+        value={product.images.join(', ')}
+        onChange={(e) =>
+          setProduct({
+            ...product,
+            images: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+          })
+        }
+      />
+    </div>
+    <div>
+      <Label>Colors (comma-separated)</Label>
+      <Input
+        placeholder="beige, grey, brown"
+        value={product.colors.join(', ')}
+        onChange={(e) =>
+          setProduct({
+            ...product,
+            colors: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+          })
+        }
+      />
+    </div>
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        id="featured"
+        checked={product.featured}
+        onChange={(e) => setProduct({ ...product, featured: e.target.checked })}
+      />
+      <Label htmlFor="featured">Featured Product</Label>
+    </div>
+    <Button onClick={onSubmit} className="w-full bg-[#2C2C2C]">
+      {submitLabel}
+    </Button>
+  </div>
+);
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -70,22 +216,13 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
 
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    slug: '',
-    description: '',
-    category: 'Living Room',
-    price: 0,
-    originalPrice: 0,
-    stock: 0,
-    images: [] as string[],
-    colors: [] as string[],
-    materials: '',
-    featured: false,
-  });
+  const [newProduct, setNewProduct] = useState(initialProductState);
+  const [editProduct, setEditProduct] = useState(initialProductState);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -133,38 +270,77 @@ export default function AdminDashboard() {
       if (res.ok) {
         setIsAddProductOpen(false);
         loadProducts();
-        setNewProduct({
-          name: '',
-          slug: '',
-          description: '',
-          category: 'Living Room',
-          price: 0,
-          originalPrice: 0,
-          stock: 0,
-          images: [],
-          colors: [],
-          materials: '',
-          featured: false,
-        });
+        setNewProduct(initialProductState);
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to add product');
       }
     } catch (error) {
       console.error('Error adding product:', error);
+      alert('Error adding product');
+    }
+  };
+
+  const handleEditClick = (product: Product) => {
+    setEditingProductId(product.id);
+    setEditProduct({
+      name: product.name,
+      slug: product.slug,
+      description: product.description || '',
+      category: product.category,
+      price: product.price,
+      originalPrice: product.originalPrice || 0,
+      stock: product.stock,
+      images: product.images,
+      colors: product.colors,
+      materials: product.materials || '',
+      featured: product.featured,
+    });
+    setIsEditProductOpen(true);
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!editingProductId) return;
+
+    try {
+      const res = await fetch(`/api/admin/products/${editingProductId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editProduct),
+      });
+
+      if (res.ok) {
+        setIsEditProductOpen(false);
+        setEditingProductId(null);
+        loadProducts();
+        setEditProduct(initialProductState);
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to update product');
+      }
+    } catch (error) {
+      console.error('Error updating product:', error);
+      alert('Error updating product');
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
-      try {
-        const res = await fetch(`/api/admin/products/${id}`, {
-          method: 'DELETE',
-        });
+    if (!confirm('Are you sure you want to delete this product?')) return;
 
-        if (res.ok) {
-          loadProducts();
-        }
-      } catch (error) {
-        console.error('Error deleting product:', error);
+    try {
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        loadProducts();
+      } else {
+        const error = await res.json();
+        alert(error.error || 'Failed to delete product');
       }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      alert('Error deleting product');
     }
   };
 
@@ -318,146 +494,27 @@ export default function AdminDashboard() {
                     <DialogHeader>
                       <DialogTitle>Add New Product</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Product Name</Label>
-                        <Input
-                          value={newProduct.name}
-                          onChange={(e) =>
-                            setNewProduct({ ...newProduct, name: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Slug</Label>
-                        <Input
-                          value={newProduct.slug}
-                          onChange={(e) =>
-                            setNewProduct({ ...newProduct, slug: e.target.value })
-                          }
-                          placeholder="product-name-slug"
-                        />
-                      </div>
-                      <div>
-                        <Label>Description</Label>
-                        <Textarea
-                          value={newProduct.description}
-                          onChange={(e) =>
-                            setNewProduct({ ...newProduct, description: e.target.value })
-                          }
-                          rows={3}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Category</Label>
-                          <select
-                            className="w-full border rounded-md px-3 py-2"
-                            value={newProduct.category}
-                            onChange={(e) =>
-                              setNewProduct({ ...newProduct, category: e.target.value })
-                            }
-                          >
-                            <option>Living Room</option>
-                            <option>Bedroom</option>
-                            <option>Dining</option>
-                            <option>Office</option>
-                            <option>Outdoor</option>
-                          </select>
-                        </div>
-                        <div>
-                          <Label>Materials</Label>
-                          <Input
-                            value={newProduct.materials}
-                            onChange={(e) =>
-                              setNewProduct({ ...newProduct, materials: e.target.value })
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label>Price</Label>
-                          <Input
-                            type="number"
-                            value={newProduct.price}
-                            onChange={(e) =>
-                              setNewProduct({
-                                ...newProduct,
-                                price: parseFloat(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Original Price</Label>
-                          <Input
-                            type="number"
-                            value={newProduct.originalPrice}
-                            onChange={(e) =>
-                              setNewProduct({
-                                ...newProduct,
-                                originalPrice: parseFloat(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Stock</Label>
-                          <Input
-                            type="number"
-                            value={newProduct.stock}
-                            onChange={(e) =>
-                              setNewProduct({
-                                ...newProduct,
-                                stock: parseInt(e.target.value),
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Image URL (comma-separated for multiple)</Label>
-                        <Input
-                          placeholder="https://example.com/image.jpg, https://example.com/image2.jpg"
-                          onChange={(e) =>
-                            setNewProduct({
-                              ...newProduct,
-                              images: e.target.value.split(',').map((s) => s.trim()),
-                            })
-                          }
-                        />
-                      </div>
-                      <div>
-                        <Label>Colors (comma-separated)</Label>
-                        <Input
-                          placeholder="beige, grey, brown"
-                          onChange={(e) =>
-                            setNewProduct({
-                              ...newProduct,
-                              colors: e.target.value.split(',').map((s) => s.trim()),
-                            })
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="featured"
-                          checked={newProduct.featured}
-                          onChange={(e) =>
-                            setNewProduct({ ...newProduct, featured: e.target.checked })
-                          }
-                        />
-                        <Label htmlFor="featured">Featured Product</Label>
-                      </div>
-                      <Button
-                        onClick={handleAddProduct}
-                        className="w-full bg-[#2C2C2C]"
-                      >
-                        Add Product
-                      </Button>
-                    </div>
+                    <ProductForm
+                      product={newProduct}
+                      setProduct={setNewProduct}
+                      onSubmit={handleAddProduct}
+                      submitLabel="Add Product"
+                    />
+                  </DialogContent>
+                </Dialog>
+
+                {/* Edit Product Dialog */}
+                <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Edit Product</DialogTitle>
+                    </DialogHeader>
+                    <ProductForm
+                      product={editProduct}
+                      setProduct={setEditProduct}
+                      onSubmit={handleUpdateProduct}
+                      submitLabel="Update Product"
+                    />
                   </DialogContent>
                 </Dialog>
               </div>
@@ -497,7 +554,11 @@ export default function AdminDashboard() {
                           <TableCell>{product.stock}</TableCell>
                           <TableCell>
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEditClick(product)}
+                              >
                                 <Edit className="w-4 h-4" />
                               </Button>
                               <Button

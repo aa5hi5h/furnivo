@@ -13,6 +13,15 @@ export async function GET(req: NextRequest) {
 
     const products = await prisma.product.findMany({
       orderBy: { createdAt: 'desc' },
+      include: {
+        collection: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(products);
@@ -45,9 +54,29 @@ export async function POST(req: NextRequest) {
       featured,
     } = body;
 
+    // Validation
     if (!name || !slug || !category || price === undefined || stock === undefined) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields: name, slug, category, price, and stock are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!images || images.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one image is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if slug already exists
+    const existingProduct = await prisma.product.findUnique({
+      where: { slug },
+    });
+
+    if (existingProduct) {
+      return NextResponse.json(
+        { error: 'A product with this slug already exists' },
         { status: 400 }
       );
     }
@@ -56,15 +85,15 @@ export async function POST(req: NextRequest) {
       data: {
         name,
         slug,
-        description,
+        description: description || null,
         category,
-        price,
-        originalPrice,
-        stock,
-        image: images[0] || '',
-        images: images || [],
+        price: parseFloat(price),
+        originalPrice: originalPrice ? parseFloat(originalPrice) : null,
+        stock: parseInt(stock),
+        image: images[0],
+        images: images,
         colors: colors || [],
-        materials,
+        materials: materials || null,
         featured: featured || false,
       },
     });
