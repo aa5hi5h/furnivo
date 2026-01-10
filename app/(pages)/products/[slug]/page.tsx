@@ -14,9 +14,10 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useCart } from '@/contexts/cart-context';
-import ProductCard from '@/components/product-card';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
+import ReviewSection from '@/components/reviews/ReviewSection';
+import RelatedProducts from '@/components/products/RelatedProduct';
 
 type Product = {
   id: string;
@@ -54,7 +55,6 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
-  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState<string | null>(null);
@@ -114,7 +114,6 @@ export default function ProductDetailPage() {
 
     try {
       if (isWishlisted && wishlistItemId) {
-        // Remove from wishlist
         const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
           method: 'DELETE',
         });
@@ -132,7 +131,6 @@ export default function ProductDetailPage() {
           description: 'Product removed from your wishlist',
         });
       } else {
-        // Add to wishlist
         const response = await fetch('/api/wishlist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -178,27 +176,11 @@ export default function ProductDetailPage() {
         if (result.data.colors && result.data.colors.length > 0) {
           setSelectedColor(result.data.colors[0]);
         }
-        loadSimilarProducts(result.data.category, slug);
       }
     } catch (error) {
       console.error('Error loading product:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadSimilarProducts = async (category: string, currentSlug: string) => {
-    try {
-      const response = await fetch(`/api/products?category=${category}&limit=4`);
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        // Filter out current product
-        const filtered = result.data.filter((p: Product) => p.slug !== currentSlug);
-        setSimilarProducts(filtered.slice(0, 4));
-      }
-    } catch (error) {
-      console.error('Error loading similar products:', error);
     }
   };
 
@@ -302,6 +284,7 @@ export default function ProductDetailPage() {
                     />
                   ))}
                 </div>
+                <span className="text-lg font-semibold">{rating.toFixed(1)}</span>
                 <span className="text-sm text-gray-600">({reviewCount} reviews)</span>
               </div>
             )}
@@ -455,46 +438,14 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Tabs Section */}
-        <Tabs defaultValue="description" className="mb-16">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
-            <TabsTrigger value="description">Description</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews ({reviewCount})</TabsTrigger>
-            <TabsTrigger value="similar">Similar</TabsTrigger>
-          </TabsList>
-          <TabsContent value="description" className="py-8">
-            <div className="max-w-3xl mx-auto prose prose-lg">
-              <p>{product.description}</p>
-              {product.materials && (
-                <div className="mt-6">
-                  <h3 className="font-semibold mb-2">Materials</h3>
-                  <p>{product.materials}</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          <TabsContent value="reviews" className="py-8">
-            <div className="max-w-3xl mx-auto text-center">
-              <p className="text-gray-600">No reviews yet. Be the first to review this product!</p>
-              <Button className="mt-4" variant="outline">
-                Write a Review
-              </Button>
-            </div>
-          </TabsContent>
-          <TabsContent value="similar" className="py-8">
-            {similarProducts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {similarProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-600">
-                No similar products found
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Reviews Section */}
+        <ReviewSection 
+          productId={product.id} 
+          userId={session?.user?.id}
+        />
+
+        {/* Related Products */}
+        <RelatedProducts productId={product.id} />
       </div>
     </div>
   );

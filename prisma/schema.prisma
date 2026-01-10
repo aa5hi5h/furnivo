@@ -22,6 +22,7 @@ model User {
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
   reviews       Review[]
+  reviewVotes   ReviewVote[]
 }
 
 model Product {
@@ -39,7 +40,6 @@ model Product {
   materials     String?
   featured      Boolean  @default(false)
   
-  // NEW: Rating fields (optional)
   rating        Float?   @default(0)
   reviewCount   Int?     @default(0)
   
@@ -52,27 +52,59 @@ model Product {
   orderItems    OrderItem[]
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
-  reviews       Review[]  // NEW: Relation to reviews
+  reviews       Review[]
 }
 
-// NEW: Review Model (optional)
 model Review {
   id        String   @id @default(cuid())
-  rating    Int      // 1-5 stars
-  comment   String?
+  rating    Int      // 1-5 stars (only for top-level reviews)
+  comment   String?  // Optional in DB, but filtered in API - comments without body won't be shown
   userName  String
   userEmail String?
-  verified  Boolean  @default(false)
+  verified  Boolean  @default(false) // Only true if user has purchased this product
   productId String
   userId    String?
+  
+  // NEW: Nested comment fields
+  parentId  String?  // ID of the parent review/comment
+  depth     Int      @default(0) // 0 = top-level, 1+ = nested replies
+  
+  // NEW: Vote tracking
+  voteCount Int      @default(0) // Net votes (upvotes - downvotes)
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   
+  // Self-referential relation for nested comments
+  parent    Review?  @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Review[] @relation("ReviewReplies")
+  
+  // Relation to votes
+  votes     ReviewVote[]
+  
   @@index([productId])
   @@index([rating])
+  @@index([parentId])
+  @@index([voteCount]) // For sorting by popularity
+}
+
+// NEW: Vote tracking model
+model ReviewVote {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  voteType  Int      // 1 for upvote, -1 for downvote
+  createdAt DateTime @default(now())
+  
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([reviewId, userId]) // One vote per user per review
+  @@index([reviewId])
+  @@index([userId])
 }
 
 model Collection {
@@ -164,7 +196,7 @@ model ContactInquiry {
   subject      String
   orderNumber  String?
   message      String
-  status       String   @default("new") // new, in_progress, resolved
+  status       String   @default("new")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   
@@ -177,12 +209,12 @@ model DesignServiceBooking {
   name           String
   email          String
   phone          String
-  serviceType    String   // virtual, inhome, fullroom
+  serviceType    String
   preferredDate  String?
   preferredTime  String?
   budgetRange    String?
   message        String?
-  status         String   @default("pending") // pending, confirmed, completed, cancelled
+  status         String   @default("pending")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
