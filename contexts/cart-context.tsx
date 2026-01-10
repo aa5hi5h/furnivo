@@ -25,6 +25,10 @@ interface CartContextType {
   clearCart: () => Promise<void>;
   loading: boolean;
   itemCount: number;
+  cart: CartItem[];          // alias for items
+  isCartOpen: boolean;
+  setIsCartOpen: (v: boolean) => void;
+  cartTotal: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -34,6 +38,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   // Load cart when user logs in
   useEffect(() => {
@@ -201,6 +206,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
+  const cartTotal = items.reduce((sum, item) => {
+    const price = item.product?.price || 0;
+    return sum + (price * item.quantity);
+  }, 0);
+
+
   return (
     <CartContext.Provider
       value={{
@@ -211,6 +222,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearCart,
         loading,
         itemCount,
+        cart: items,        // alias
+        isCartOpen,
+        setIsCartOpen,
+        cartTotal,          
       }}
     >
       {children}
