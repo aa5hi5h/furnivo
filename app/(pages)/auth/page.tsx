@@ -73,7 +73,7 @@ export default function AuthPage() {
       if (signInResult?.error) {
         setError('Account created but sign in failed. Please sign in manually.');
       } else {
-        router.push('/account');
+        router.push('/');
         router.refresh();
       }
     } catch (err) {

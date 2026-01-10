@@ -14,7 +14,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  Search,
   Eye,
   X,
 } from 'lucide-react';
@@ -39,6 +38,11 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
+import AdminSearchBar from '@/components/admin/AdminSearchbar';
+import OrderSearchBar from '@/components/admin/OrderSearchBar';
+import CustomerSearchBar from '@/components/admin/CustomerSearchBar';
+import BookingSearchBar from '@/components/admin/BookingSearchbar';
+import AdminProfileDropdown from '@/components/admin/AdminProfileDropdown';
 
 interface Product {
   id: string;
@@ -184,7 +188,10 @@ const ProductForm = ({
           type="number"
           value={product.originalPrice}
           onChange={(e) =>
-            setProduct({ ...product, originalPrice: parseFloat(e.target.value) || 0 })
+            setProduct({
+              ...product,
+              originalPrice: parseFloat(e.target.value) || 0,
+            })
           }
         />
       </div>
@@ -207,7 +214,10 @@ const ProductForm = ({
         onChange={(e) =>
           setProduct({
             ...product,
-            images: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+            images: e.target.value
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean),
           })
         }
       />
@@ -220,7 +230,10 @@ const ProductForm = ({
         onChange={(e) =>
           setProduct({
             ...product,
-            colors: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+            colors: e.target.value
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean),
           })
         }
       />
@@ -474,6 +487,18 @@ export default function AdminDashboard() {
     }
   };
 
+  // NEW: Handle admin search actions
+  const handleEditProductFromSearch = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      handleEditClick(product);
+    }
+  };
+
+  const handleDeleteProductFromSearch = (productId: string) => {
+    handleDeleteProduct(productId);
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -554,19 +579,56 @@ export default function AdminDashboard() {
         <header className="bg-white border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10">
           <h2 className="text-2xl font-bold capitalize">{activeTab}</h2>
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="search"
-                placeholder="Search..."
-                className="pl-10 w-64"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
+            {/* Smart Tab-Based Search */}
+            {activeTab === 'products' && (
+              <div className="w-96">
+                <AdminSearchBar
+                  onEdit={handleEditProductFromSearch}
+                  onDelete={handleDeleteProductFromSearch}
+                />
+              </div>
+            )}
+
+            {activeTab === 'orders' && (
+              <div className="w-96">
+                <OrderSearchBar
+                  orders={orders}
+                  onSelect={(order) => setViewOrderDetails(order)}
+                />
+              </div>
+            )}
+
+            {activeTab === 'customers' && (
+              <div className="w-96">
+                <CustomerSearchBar customers={customers} />
+              </div>
+            )}
+
+            {activeTab === 'bookings' && (
+              <div className="w-96">
+                <BookingSearchBar
+                  bookings={bookings}
+                  onSelect={(booking) => setViewBookingDetails(booking)}
+                />
+              </div>
+            )}
+
+            {!['products', 'orders', 'customers', 'bookings'].includes(activeTab) && (
+              <div className="relative">
+                <Input
+                  type="search"
+                  placeholder="Search..."
+                  className="pl-10 w-64"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
+
+           
+            <AdminProfileDropdown 
+  onSettingsClick={() => setActiveTab('settings')}
+/>
           </div>
         </header>
 

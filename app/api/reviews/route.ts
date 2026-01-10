@@ -1,92 +1,99 @@
-import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const productId = searchParams.get("productId");
+    const searchParams = request.nextUrl.searchParams;
+    const productId = searchParams.get('productId');
 
     if (!productId) {
       return NextResponse.json(
-        { error: "Product ID is required" },
+        { error: 'Product ID required' },
         { status: 400 }
       );
     }
 
     const reviews = await prisma.review.findMany({
-      where: {
-        product_id: productId,
+      where: { productId },
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        userName: true,
+        createdAt: true,
+        verified: true,
       },
-      orderBy: {
-        created_at: "desc",
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(reviews);
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { rating: true, reviewCount: true },
+    });
+
+    return NextResponse.json({ reviews, product });
   } catch (error) {
-    console.error("Error fetching reviews:", error);
+    console.error('Reviews fetch error:', error);
     return NextResponse.json(
-      { error: "Failed to fetch reviews" },
+      { error: 'Failed to fetch reviews' },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const {
-      productId,
-      userId,
-      rating,
-      title,
-      comment,
-      images,
-      verified_purchase,
-    } = body;
+    const { productId, rating, comment, userName, userId } = body;
 
-    if (!productId || !userId || !rating) {
+    if (!productId || !rating || !userName) {
       return NextResponse.json(
-        { error: "Product ID, User ID, and rating are required" },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
+    if (rating < 1 || rating > 5) {
+      return NextResponse.json(
+        { error: 'Rating must be between 1 and 5' },
+        { status: 400 }
+      );
+    }
+
+    // Create review
     const review = await prisma.review.create({
       data: {
-        product_id: productId,
-        user_id: userId,
+        productId,
         rating,
-        title: title || "",
-        comment: comment || "",
-        images: images || [],
-        verified_purchase: verified_purchase || false,
+        comment,
+        userName,
+        userId: userId || null,
+        verified: !!userId,
       },
     });
 
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { reviews: true },
+    // Update product rating
+    const allReviews = await prisma.review.findMany({
+      where: { productId },
+      select: { rating: true },
     });
 
-    if (product) {
-      const avgRating =
-        product.reviews.reduce((sum: number, r: any) => sum + r.rating, 0) /
-        product.reviews.length;
-      await prisma.product.update({
-        where: { id: productId },
-        data: {
-          rating: avgRating,
-          review_count: product.reviews.length,
-        },
-      });
-    }
+    const avgRating =
+      allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
 
-    return NextResponse.json(review);
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        rating: parseFloat(avgRating.toFixed(1)),
+        reviewCount: allReviews.length,
+      },
+    });
+
+    return NextResponse.json(review, { status: 201 });
   } catch (error) {
-    console.error("Error creating review:", error);
+    console.error('Create review error:', error);
     return NextResponse.json(
-      { error: "Failed to create review" },
+      { error: 'Failed to create review' },
       { status: 500 }
     );
   }
