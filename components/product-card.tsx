@@ -8,6 +8,7 @@ import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface Product {
   id: string;
@@ -37,12 +38,13 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
   const { addToCart } = useCart();
   const { toast } = useToast();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
   // Check if product is in wishlist on component mount
   useEffect(() => {
     const checkWishlistStatus = async () => {
-      if (!session?.user?.id) {
+      if (status !== 'authenticated' || !session?.user?.id) {
         setIsWishlisted(false);
         setWishlistItemId(null);
         return;
@@ -77,14 +79,16 @@ export default function ProductCard({ product }: ProductCardProps) {
     };
 
     checkWishlistStatus();
-  }, [session?.user?.id, product.id]);
+  }, [status, session?.user?.id, product.id]);
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     if (product.stock === 0) {
       toast({
         title: 'Out of stock',
@@ -93,7 +97,18 @@ export default function ProductCard({ product }: ProductCardProps) {
       });
       return;
     }
-    addToCart(product.id, 1, product.colors?.[0] || '');
+
+    if (status !== 'authenticated' || !session?.user?.id) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please sign in to add items to cart',
+        variant: 'error',
+      });
+      router.push('/auth');
+      return;
+    }
+
+    await addToCart(product.id, 1, product.colors?.[0] || '');
     toast({
       title: 'Added to cart',
       description: `${product.name} has been added to your cart`,
@@ -102,13 +117,15 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const toggleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    if (!session?.user?.id) {
+    if (status !== 'authenticated' || !session?.user?.id) {
       toast({
         title: 'Authentication required',
         description: 'Please sign in to add items to your wishlist',
         variant: 'error',
       });
+      router.push('/auth');
       return;
     }
 
@@ -116,7 +133,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     try {
       if (isWishlisted && wishlistItemId) {
-        // Remove from wishlist using the wishlist item ID
+        // Remove from wishlist
         const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
           method: 'DELETE',
         });
@@ -193,7 +210,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
 
           {discount > 0 && (
-            <div className="absolute top-3 left-3 bg-black text-white text-xs font-bold px-3 py-1 rounded-full">
+            <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
               -{discount}%
             </div>
           )}

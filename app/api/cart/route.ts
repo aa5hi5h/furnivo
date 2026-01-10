@@ -6,12 +6,13 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 // GET - Get user's cart
+// GET - Get user's cart
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
     const cartItems = await prisma.cartItem.findMany({
@@ -31,25 +32,40 @@ export async function GET(req: NextRequest) {
             name: true,
             price: true,
             images: true,
+            image: true,  // Add this
             stock: true,
           },
         },
       },
     });
 
+    // Transform the data to match what the frontend expects
+    const transformedItems = cartItems.map(item => ({
+      id: item.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      product: {
+        name: item.product.name,
+        price: item.product.price,
+        image: item.product.image || item.product.images[0] || '', // Use first image or main image
+        stock: item.product.stock,
+      },
+    }));
+
     const total = cartItems.reduce(
-      (sum:any, item:any) => sum + item.product.price * item.quantity,
+      (sum, item) => sum + item.product.price * item.quantity,
       0
     );
 
     return NextResponse.json({
-      items: cartItems,
+      success: true,
+      data: transformedItems,
       total,
       count: cartItems.length,
     });
   } catch (error) {
     console.error('Error fetching cart:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -59,7 +75,7 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
@@ -67,7 +83,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
     const body = await req.json();
@@ -75,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     if (!productId) {
       return NextResponse.json(
-        { error: 'Product ID is required' },
+        { success: false, error: 'Product ID is required' },
         { status: 400 }
       );
     }
@@ -97,7 +113,18 @@ export async function POST(req: NextRequest) {
       cartItem = await prisma.cartItem.update({
         where: { id: existingItem.id },
         data: { quantity: existingItem.quantity + quantity },
-        include: { product: true },
+        include: { 
+          product: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              image: true,
+              images: true,
+              stock: true,
+            },
+          },
+        },
       });
     } else {
       // Create new cart item
@@ -107,14 +134,29 @@ export async function POST(req: NextRequest) {
           productId,
           quantity,
         },
-        include: { product: true },
+        include: { 
+          product: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              image: true,
+              images: true,
+              stock: true,
+            },
+          },
+        },
       });
     }
 
-    return NextResponse.json(cartItem);
+    return NextResponse.json({ 
+      success: true, 
+      data: cartItem,
+      message: 'Item added to cart successfully'
+    });
   } catch (error) {
     console.error('Error adding to cart:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
