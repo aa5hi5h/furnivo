@@ -5,12 +5,10 @@ export async function GET(request: Request) {
   try {
     const products = await prisma.product.findMany({
       where: {
-        original_price: {
-          not: null,
-        },
+        originalPrice: { not: null }, // ← use the Prisma field name
       },
       orderBy: {
-        created_at: "desc",
+        createdAt: 'desc',            // ← same fix for created_at
       },
     });
 
