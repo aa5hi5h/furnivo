@@ -27,6 +27,7 @@ interface Review {
 
 interface ReviewSectionProps {
   productId: string;
+  userId?: string; // <-- add this line
 }
 
 function ReviewItem({ 
