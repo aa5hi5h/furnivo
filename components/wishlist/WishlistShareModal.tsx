@@ -1,27 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Copy, Check } from 'lucide-react';
-
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  image: string;
-  price: number;
-  rating?: number;
-  reviewCount?: number;
-  collection?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-}
+import { X, Check } from 'lucide-react';
 
 interface WishlistItem {
   id: string;
-  product: Product;
-  createdAt: string;
+  productId: string;
+  createdAt: Date | string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    image: string;
+    price: number;
+    rating?: number;
+    reviewCount?: number;
+  };
 }
 
 interface WishlistShareModalProps {
@@ -47,10 +41,12 @@ export default function WishlistShareModal({
 
   const generateShareMessage = () => {
     const productList = items
-      .map((item) => `${item.product.name} - $${item.product.price}`)
+      .map((item) => `${item.product.name} - ₹${item.product.price}`)
       .join('\n');
 
-    const message = `Check out my FURNIVO wishlist! 🛋️\n\n${productList}\n\nTotal: $${items.reduce((sum, item) => sum + item.product.price, 0).toFixed(2)}\n\nVisit FURNIVO: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/wishlist`;
+    const totalPrice = items.reduce((sum, item) => sum + item.product.price, 0);
+
+    const message = `Check out my FURNIVO wishlist! 🛋️\n\n${productList}\n\nTotal: ₹${totalPrice.toFixed(2)}\n\nVisit FURNIVO: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/wishlist`;
 
     return message;
   };
@@ -58,7 +54,6 @@ export default function WishlistShareModal({
   const handleShare = (platform: string) => {
     setSharing(true);
     const message = generateShareMessage();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     let shareUrl = '';
 
     switch (platform.toLowerCase()) {
@@ -105,7 +100,7 @@ export default function WishlistShareModal({
         <div className="bg-gray-50 rounded-lg p-4 mb-6">
           <p className="text-sm text-gray-600 mb-2">
             <strong>{items.length}</strong> item(s) • Total:{' '}
-            <strong>${totalPrice.toFixed(2)}</strong>
+            <strong>₹{totalPrice.toFixed(2)}</strong>
           </p>
           <div className="text-xs text-gray-500 max-h-24 overflow-y-auto space-y-1">
             {items.map((item) => (

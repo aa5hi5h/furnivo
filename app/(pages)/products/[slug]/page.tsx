@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/accordion';
 import { useCart } from '@/contexts/cart-context';
 import ProductCard from '@/components/product-card';
+import { useToast } from '@/hooks/use-toast';
+import { useSession } from 'next-auth/react';
 
 type Product = {
   id: string;
@@ -30,6 +32,8 @@ type Product = {
   colors: string[];
   materials: string | null;
   featured: boolean;
+  rating: number | null;
+  reviewCount: number | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   collection?: {
@@ -43,6 +47,8 @@ export default function ProductDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
   const { addToCart } = useCart();
+  const { toast } = useToast();
+  const { data: session } = useSession();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -50,10 +56,116 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState<string | null>(null);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
 
   useEffect(() => {
     loadProduct();
   }, [slug]);
+
+  useEffect(() => {
+    if (product && session?.user?.id) {
+      checkWishlistStatus();
+    }
+  }, [product, session?.user?.id]);
+
+  const checkWishlistStatus = async () => {
+    if (!session?.user?.id || !product) return;
+
+    try {
+      const response = await fetch(`/api/wishlist?userId=${session.user.id}`, {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          const wishlistItem = result.data.find(
+            (item: any) => item.productId === product.id
+          );
+          if (wishlistItem) {
+            setIsWishlisted(true);
+            setWishlistItemId(wishlistItem.id);
+          } else {
+            setIsWishlisted(false);
+            setWishlistItemId(null);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking wishlist status:', error);
+    }
+  };
+
+  const toggleWishlist = async () => {
+    if (!session?.user?.id) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please sign in to add items to your wishlist',
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (!product) return;
+
+    setIsTogglingWishlist(true);
+
+    try {
+      if (isWishlisted && wishlistItemId) {
+        // Remove from wishlist
+        const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
+          method: 'DELETE',
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to remove from wishlist');
+        }
+
+        setIsWishlisted(false);
+        setWishlistItemId(null);
+        toast({
+          title: 'Removed from wishlist',
+          description: 'Product removed from your wishlist',
+        });
+      } else {
+        // Add to wishlist
+        const response = await fetch('/api/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: session.user.id,
+            productId: product.id,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to add to wishlist');
+        }
+
+        setIsWishlisted(true);
+        setWishlistItemId(result.data.id);
+        toast({
+          title: 'Added to wishlist',
+          description: result.message || 'Product added to your wishlist',
+        });
+      }
+    } catch (error: any) {
+      console.error('Wishlist error:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update wishlist',
+        variant: 'error',
+      });
+    } finally {
+      setIsTogglingWishlist(false);
+    }
+  };
 
   const loadProduct = async () => {
     setLoading(true);
@@ -93,6 +205,10 @@ export default function ProductDetailPage() {
   const handleAddToCart = () => {
     if (product) {
       addToCart(product.id, quantity, selectedColor);
+      toast({
+        title: 'Added to cart',
+        description: `${product.name} has been added to your cart`,
+      });
     }
   };
 
@@ -121,9 +237,8 @@ export default function ProductDetailPage() {
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
 
-  // Mock rating and review count (you can add these to your schema later)
-  const rating = 4.5;
-  const reviewCount = 24;
+  const rating = product.rating || 0;
+  const reviewCount = product.reviewCount || 0;
 
   return (
     <div className="bg-white">
@@ -175,19 +290,21 @@ export default function ProductDetailPage() {
             <h1 className="font-serif text-4xl font-bold mb-4">{product.name}</h1>
             
             {/* Rating */}
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex items-center gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-5 h-5 ${
-                      i < Math.round(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                    }`}
-                  />
-                ))}
+            {rating > 0 && (
+              <div className="flex items-center gap-4 mb-6">
+                <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`w-5 h-5 ${
+                        i < Math.round(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-sm text-gray-600">({reviewCount} reviews)</span>
               </div>
-              <span className="text-sm text-gray-600">({reviewCount} reviews)</span>
-            </div>
+            )}
 
             {/* Price */}
             <div className="flex items-center gap-4 mb-6">
@@ -250,7 +367,7 @@ export default function ProductDetailPage() {
                   +
                 </button>
               </div>
-              {product.stock < 10 && (
+              {product.stock < 10 && product.stock > 0 && (
                 <p className="text-sm text-orange-600 mt-2">
                   Only {product.stock} items left in stock
                 </p>
@@ -267,8 +384,18 @@ export default function ProductDetailPage() {
               >
                 {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </Button>
-              <Button size="lg" variant="outline" className="py-6">
-                <Heart className="w-5 h-5" />
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="py-6"
+                onClick={toggleWishlist}
+                disabled={isTogglingWishlist}
+              >
+                {isTogglingWishlist ? (
+                  <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
+                )}
               </Button>
             </div>
 

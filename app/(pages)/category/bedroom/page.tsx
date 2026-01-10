@@ -61,6 +61,7 @@ export default function BedroomPage() {
   const [gridColumns, setGridColumns] = useState(3);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showQuickView, setShowQuickView] = useState(false);
+  const [wishlistItemIds, setWishlistItemIds] = useState<Record<string, string>>({});
   const { addToCart } = useCart();
   const { toast } = useToast();
   const { data: session } = useSession();
@@ -68,6 +69,35 @@ export default function BedroomPage() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      checkWishlistStatus();
+    }
+  }, [session?.user?.id, products]);
+
+  const checkWishlistStatus = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      const response = await fetch(`/api/wishlist?userId=${session.user.id}`, {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          const wishlistMap: Record<string, string> = {};
+          result.data.forEach((item: any) => {
+            wishlistMap[item.productId] = item.id;
+          });
+          setWishlistItemIds(wishlistMap);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking wishlist status:', error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -86,7 +116,7 @@ export default function BedroomPage() {
       toast({ 
         title: 'Error', 
         description: 'Failed to load products',
-        variant: 'destructive'
+        variant: 'error'
       });
     } finally {
       setLoading(false);
@@ -96,7 +126,6 @@ export default function BedroomPage() {
   const handleFilterChange = (filters: FilterState) => {
     let filtered = [...products];
 
-    // Filter by subcategories (product name contains category keyword)
     if (filters.categories.length > 0) {
       filtered = filtered.filter(p =>
         filters.categories.some(cat => 
@@ -105,7 +134,6 @@ export default function BedroomPage() {
       );
     }
 
-    // Filter by materials
     if (filters.materials.length > 0) {
       filtered = filtered.filter(p =>
         filters.materials.some(mat => 
@@ -114,7 +142,6 @@ export default function BedroomPage() {
       );
     }
 
-    // Filter by colors
     if (filters.colors.length > 0) {
       filtered = filtered.filter(p =>
         filters.colors.some(col => 
@@ -125,7 +152,6 @@ export default function BedroomPage() {
       );
     }
 
-    // Filter by price range
     filtered = filtered.filter(
       p => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
     );
@@ -183,37 +209,65 @@ export default function BedroomPage() {
       toast({ 
         title: 'Authentication required', 
         description: 'Please sign in to add items to your wishlist',
-        variant: 'destructive'
+        variant: 'error'
       });
       return;
     }
 
     try {
-      const response = await fetch('/api/wishlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: session.user.id, 
-          productId 
-        }),
-      });
+      const wishlistItemId = wishlistItemIds[productId];
 
-      const data = await response.json();
+      if (wishlistItemId) {
+        const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
+          method: 'DELETE',
+        });
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add to wishlist');
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to remove from wishlist');
+        }
+
+        const newWishlistMap = { ...wishlistItemIds };
+        delete newWishlistMap[productId];
+        setWishlistItemIds(newWishlistMap);
+
+        toast({ 
+          title: 'Removed from wishlist', 
+          description: 'Product removed from your wishlist'
+        });
+      } else {
+        const response = await fetch('/api/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: session.user.id, 
+            productId 
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to add to wishlist');
+        }
+
+        setWishlistItemIds({
+          ...wishlistItemIds,
+          [productId]: result.data.id
+        });
+
+        toast({ 
+          title: 'Added to wishlist', 
+          description: result.message || 'Product added to your wishlist'
+        });
       }
-
-      toast({ 
-        title: 'Success', 
-        description: data.message || 'Added to wishlist' 
-      });
     } catch (error: any) {
       console.error('Wishlist error:', error);
       toast({ 
         title: 'Error', 
-        description: error.message || 'Failed to add to wishlist',
-        variant: 'destructive'
+        description: error.message || 'Failed to update wishlist',
+        variant: 'error'
       });
     }
   };
@@ -299,6 +353,8 @@ export default function BedroomPage() {
                     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
                     : 0;
 
+                  const isWishlisted = !!wishlistItemIds[product.id];
+
                   return (
                     <div
                       key={product.id}
@@ -340,11 +396,13 @@ export default function BedroomPage() {
                           </button>
                           <button
                             onClick={() => handleAddToWishlist(product.id)}
-                            className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
-                            title="Add to Wishlist"
-                            aria-label="Add to wishlist"
+                            className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors ${
+                              isWishlisted ? 'text-red-500' : ''
+                            }`}
+                            title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                           >
-                            <Heart size={20} />
+                            <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
                           </button>
                           <button
                             className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
@@ -435,13 +493,18 @@ export default function BedroomPage() {
         </div>
       </div>
 
-      <QuickViewModal
-        product={quickViewProduct}
-        open={showQuickView}
-        onClose={() => setShowQuickView(false)}
-        onAddToCart={handleAddToCart}
-        onAddToWishlist={handleAddToWishlist}
-      />
+      {quickViewProduct && (
+        <QuickViewModal
+          product={{
+            ...quickViewProduct,
+            review_count: quickViewProduct.reviewCount
+          } as any}
+          open={showQuickView}
+          onClose={() => setShowQuickView(false)}
+          onAddToCart={handleAddToCart}
+          onAddToWishlist={handleAddToWishlist}
+        />
+      )}
     </div>
   );
 }

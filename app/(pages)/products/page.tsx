@@ -18,6 +18,8 @@ type Product = {
   colors: string[];
   materials: string | null;
   featured: boolean;
+  rating: number | null;
+  reviewCount: number | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   collection?: {
@@ -114,6 +116,9 @@ export default function ProductsPage() {
         break;
       case 'name':
         filtered.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'rating':
+        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         break;
       default:
         // Featured first
@@ -264,6 +269,7 @@ export default function ProductsPage() {
                 <option value="featured">Sort by: Featured</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
+                <option value="rating">Highest Rated</option>
                 <option value="newest">Newest</option>
                 <option value="name">Name: A-Z</option>
               </select>

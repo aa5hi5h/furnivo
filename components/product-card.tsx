@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, ShoppingCart, Eye } from 'lucide-react';
@@ -32,9 +32,52 @@ type ProductCardProps = {
 export default function ProductCard({ product }: ProductCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState<string | null>(null);
+  const [isCheckingWishlist, setIsCheckingWishlist] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
   const { addToCart } = useCart();
   const { toast } = useToast();
   const { data: session } = useSession();
+
+  // Check if product is in wishlist on component mount
+  useEffect(() => {
+    const checkWishlistStatus = async () => {
+      if (!session?.user?.id) {
+        setIsWishlisted(false);
+        setWishlistItemId(null);
+        return;
+      }
+
+      setIsCheckingWishlist(true);
+      try {
+        const response = await fetch(`/api/wishlist?userId=${session.user.id}`, {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            const wishlistItem = result.data.find(
+              (item: any) => item.productId === product.id
+            );
+            if (wishlistItem) {
+              setIsWishlisted(true);
+              setWishlistItemId(wishlistItem.id);
+            } else {
+              setIsWishlisted(false);
+              setWishlistItemId(null);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking wishlist status:', error);
+      } finally {
+        setIsCheckingWishlist(false);
+      }
+    };
+
+    checkWishlistStatus();
+  }, [session?.user?.id, product.id]);
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
@@ -69,15 +112,29 @@ export default function ProductCard({ product }: ProductCardProps) {
       return;
     }
 
+    setIsTogglingWishlist(true);
+
     try {
-      if (isWishlisted) {
-        // Remove from wishlist logic here if needed
+      if (isWishlisted && wishlistItemId) {
+        // Remove from wishlist using the wishlist item ID
+        const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
+          method: 'DELETE',
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to remove from wishlist');
+        }
+
         setIsWishlisted(false);
+        setWishlistItemId(null);
         toast({
           title: 'Removed from wishlist',
           description: 'Product removed from your wishlist',
         });
       } else {
+        // Add to wishlist
         const response = await fetch('/api/wishlist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -87,16 +144,17 @@ export default function ProductCard({ product }: ProductCardProps) {
           }),
         });
 
-        const data = await response.json();
+        const result = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to add to wishlist');
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to add to wishlist');
         }
 
         setIsWishlisted(true);
+        setWishlistItemId(result.data.id);
         toast({
           title: 'Added to wishlist',
-          description: data.message || 'Product added to your wishlist',
+          description: result.message || 'Product added to your wishlist',
         });
       }
     } catch (error: any) {
@@ -106,6 +164,8 @@ export default function ProductCard({ product }: ProductCardProps) {
         description: error.message || 'Failed to update wishlist',
         variant: 'error',
       });
+    } finally {
+      setIsTogglingWishlist(false);
     }
   };
 
@@ -165,9 +225,18 @@ export default function ProductCard({ product }: ProductCardProps) {
                 variant="secondary"
                 className="w-10 h-10 rounded-full"
                 onClick={toggleWishlist}
+                disabled={isCheckingWishlist || isTogglingWishlist}
                 aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
               >
-                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
+                {isTogglingWishlist ? (
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Heart 
+                    className={`w-4 h-4 transition-all duration-200 ${
+                      isWishlisted ? 'fill-red-500 text-red-500' : ''
+                    }`} 
+                  />
+                )}
               </Button>
               <Button
                 size="icon"

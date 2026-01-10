@@ -56,6 +56,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
   const [expandedSections, setExpandedSections] = useState(new Set(['materials', 'care']));
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showQuickView, setShowQuickView] = useState(false);
+  const [wishlistItemIds, setWishlistItemIds] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { addToCart } = useCart();
   const { data: session } = useSession();
@@ -65,6 +66,35 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
   useEffect(() => {
     fetchCollectionAndProducts();
   }, [slug]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
+      checkWishlistStatus();
+    }
+  }, [session?.user?.id, products]);
+
+  const checkWishlistStatus = async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      const response = await fetch(`/api/wishlist?userId=${session.user.id}`, {
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          const wishlistMap: Record<string, string> = {};
+          result.data.forEach((item: any) => {
+            wishlistMap[item.productId] = item.id;
+          });
+          setWishlistItemIds(wishlistMap);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking wishlist status:', error);
+    }
+  };
 
   const fetchCollectionAndProducts = async () => {
     try {
@@ -93,7 +123,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
       toast({ 
         title: 'Error', 
         description: 'Failed to load collection',
-        variant: 'destructive'
+        variant: 'error'
       });
     } finally {
       setLoading(false);
@@ -101,49 +131,72 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
   };
 
   const handleAddToWishlist = async (productId: string) => {
-    if (!session?.user) {
+    if (!session?.user?.id) {
       toast({ 
         title: 'Authentication required', 
         description: 'Please sign in to add items to your wishlist',
-        variant: 'destructive'
+        variant: 'error'
       });
       return;
     }
 
     try {
-      // Get userId from session - adjust based on your session structure
-      const userId = (session.user as any).id;
-      
-      if (!userId) {
-        toast({ 
-          title: 'Error', 
-          description: 'User ID not found',
-          variant: 'destructive'
+      const wishlistItemId = wishlistItemIds[productId];
+
+      if (wishlistItemId) {
+        // Remove from wishlist
+        const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
+          method: 'DELETE',
         });
-        return;
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to remove from wishlist');
+        }
+
+        // Update local state
+        const newWishlistMap = { ...wishlistItemIds };
+        delete newWishlistMap[productId];
+        setWishlistItemIds(newWishlistMap);
+
+        toast({ 
+          title: 'Removed from wishlist', 
+          description: 'Product removed from your wishlist'
+        });
+      } else {
+        // Add to wishlist
+        const response = await fetch('/api/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: session.user.id, 
+            productId 
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to add to wishlist');
+        }
+
+        // Update local state
+        setWishlistItemIds({
+          ...wishlistItemIds,
+          [productId]: result.data.id
+        });
+
+        toast({ 
+          title: 'Added to wishlist', 
+          description: result.message || 'Product added to your wishlist'
+        });
       }
-
-      const response = await fetch('/api/wishlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, productId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add to wishlist');
-      }
-
-      toast({ 
-        title: 'Success', 
-        description: data.message || 'Added to wishlist' 
-      });
     } catch (error: any) {
       toast({ 
         title: 'Error', 
-        description: error.message || 'Failed to add to wishlist',
-        variant: 'destructive'
+        description: error.message || 'Failed to update wishlist',
+        variant: 'error'
       });
     }
   };
@@ -306,6 +359,8 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
                 ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
                 : 0;
 
+              const isWishlisted = !!wishlistItemIds[product.id];
+
               return (
                 <div
                   key={product.id}
@@ -349,10 +404,12 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
                       </button>
                       <button
                         onClick={() => handleAddToWishlist(product.id)}
-                        className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
-                        aria-label="Add to wishlist"
+                        className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors ${
+                          isWishlisted ? 'text-red-500' : ''
+                        }`}
+                        aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                       >
-                        <Heart size={20} />
+                        <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
                       </button>
                     </div>
                   </div>
@@ -447,13 +504,18 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
         </div>
       </div>
 
-      <QuickViewModal
-        product={quickViewProduct}
-        open={showQuickView}
-        onClose={() => setShowQuickView(false)}
-        onAddToCart={handleAddToCart}
-        onAddToWishlist={handleAddToWishlist}
-      />
+      {quickViewProduct && (
+        <QuickViewModal
+          product={{
+            ...quickViewProduct,
+            review_count: quickViewProduct.reviewCount
+          } as any}
+          open={showQuickView}
+          onClose={() => setShowQuickView(false)}
+          onAddToCart={handleAddToCart}
+          onAddToWishlist={handleAddToWishlist}
+        />
+      )}
     </div>
   );
 }

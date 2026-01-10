@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useCart } from '@/contexts/cart-context';
+import { useState, useEffect } from 'react';
 import ProductCard from '@/components/product-card';
-import { Heart, Trash2 } from 'lucide-react';
+import { Heart, Trash2, Share2, Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import WishlistShareModal from '@/components/wishlist/WishlistShareModal';
 
 interface Product {
   id: string;
@@ -30,7 +31,7 @@ interface Product {
     slug: string;
   } | null;
   rating: number;
-  reviewCount: number ;
+  reviewCount: number;
 }
 
 interface WishlistItem {
@@ -42,27 +43,37 @@ interface WishlistItem {
 }
 
 export default function WishlistPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const { user } = useCart();
   const { toast } = useToast();
+  
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
-    if (!user) {
+    // If still loading session, do nothing
+    if (status === 'loading') {
+      return;
+    }
+
+    // If not authenticated, redirect
+    if (status === 'unauthenticated') {
       router.push('/auth');
       return;
     }
-    loadWishlist();
-  }, [user, router]);
 
-  const loadWishlist = async () => {
-    if (!user) return;
+    // If authenticated, load wishlist
+    if (status === 'authenticated' && session?.user?.id) {
+      loadWishlist(session.user.id);
+    }
+  }, [status, session, router]);
 
+  const loadWishlist = async (userId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/wishlist?userId=${user.id}`);
+      const response = await fetch(`/api/wishlist?userId=${userId}`);
       const result = await response.json();
 
       if (result.success) {
@@ -126,7 +137,6 @@ export default function WishlistPage() {
     }
 
     try {
-      // Remove all items one by one
       await Promise.all(
         wishlist.map(item => 
           fetch(`/api/wishlist/${item.id}`, { method: 'DELETE' })
@@ -148,7 +158,8 @@ export default function WishlistPage() {
     }
   };
 
-  if (loading) {
+  // Show loading while session is being checked
+  if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
@@ -156,9 +167,15 @@ export default function WishlistPage() {
     );
   }
 
+  // If not authenticated, don't render anything (will redirect)
+  if (status === 'unauthenticated') {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-white py-12">
       <div className="max-w-7xl mx-auto px-6">
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="font-serif text-5xl font-bold text-[#2C2C2C] mb-2">My Wishlist</h1>
@@ -167,17 +184,27 @@ export default function WishlistPage() {
             )}
           </div>
           {wishlist.length > 0 && (
-            <Button
-              onClick={handleClearWishlist}
-              variant="outline"
-              className="text-red-600 hover:text-red-700 hover:border-red-600"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Clear All
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => setShowShareModal(true)}
+                className="bg-[#C47456] hover:bg-[#B65A45] text-white flex items-center gap-2"
+              >
+                <Share2 className="w-4 h-4" />
+                Share Wishlist
+              </Button>
+              <Button
+                onClick={handleClearWishlist}
+                variant="outline"
+                className="text-red-600 hover:text-red-700 hover:border-red-600"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Clear All
+              </Button>
+            </div>
           )}
         </div>
 
+        {/* Empty State */}
         {wishlist.length === 0 ? (
           <div className="text-center py-16">
             <Heart className="w-24 h-24 text-gray-300 mx-auto mb-6" />
@@ -188,19 +215,20 @@ export default function WishlistPage() {
             </Button>
           </div>
         ) : (
+          /* Wishlist Grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {wishlist.map((item) => (
-              <div key={item.id} className="relative">
+              <div key={item.id} className="relative group">
                 <ProductCard product={item.product} />
                 <Button
                   onClick={() => handleRemoveItem(item.id)}
                   disabled={removingId === item.id}
                   variant="ghost"
                   size="sm"
-                  className="absolute top-2 right-2 bg-white hover:bg-red-50 text-red-600 rounded-full p-2 shadow-md"
+                  className="absolute top-2 right-2 bg-white hover:bg-red-50 text-red-600 rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   {removingId === item.id ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                    <Loader className="w-4 h-4 animate-spin" />
                   ) : (
                     <Trash2 className="w-4 h-4" />
                   )}
@@ -210,6 +238,15 @@ export default function WishlistPage() {
           </div>
         )}
       </div>
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <WishlistShareModal
+          items={wishlist}
+          userName={session?.user?.name || 'User'}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
     </div>
   );
 }
