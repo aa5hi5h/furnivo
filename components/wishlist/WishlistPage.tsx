@@ -184,13 +184,7 @@ export default function WishlistPage({ userId, userName }: WishlistPageProps) {
         </>
       )}
 
-      {showShareModal && (
-        <WishlistShareModal
-          items={items}
-          userName={userName}
-          onClose={() => setShowShareModal(false)}
-        />
-      )}
+     
     </div>
   );
 }
