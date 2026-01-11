@@ -1,401 +1,599 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import Image from 'next/image';
+import { 
+  Smartphone, 
+  CheckCircle, 
+  Phone, 
+  MapPin, 
+  Plus,
+  Edit,
+  Loader2
+} from 'lucide-react';
+import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import Image from 'next/image';
-import { CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+
+interface Address {
+  id: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
+}
 
 interface CartItem {
   id: string;
   productId: string;
   quantity: number;
-  selectedColor?: string;
-  product: {
-    id: string;
+  color?: string;
+  product?: {
     name: string;
     price: number;
-    images: string[];
+    image: string;
+    stock: number;
   };
 }
 
 export default function CheckoutPage() {
-  const router = useRouter();
+  const { items } = useCart();
   const { data: session, status } = useSession();
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [cartTotal, setCartTotal] = useState(0);
+  const router = useRouter();
+  const { toast } = useToast();
 
-  const [shippingInfo, setShippingInfo] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    address: '',
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<string>('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+  
+  // New address form
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    street: '',
     city: '',
     state: '',
-    pincode: '',
+    postalCode: '',
+    country: 'India',
+    isDefault: false,
   });
+  const [savingAddress, setSavingAddress] = useState(false);
 
-  const [deliveryOption, setDeliveryOption] = useState('standard');
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  // Calculate totals
+  const subtotal = items.reduce(
+    (sum, item) => sum + (item.product?.price || 0) * item.quantity,
+    0
+  );
+  const shipping = subtotal > 50000 ? 0 : 500;
+  const tax = subtotal * 0.18;
+  const total = subtotal + shipping + tax;
 
-  const shippingCost = deliveryOption === 'express' ? 2000 : 0;
-  const total = cartTotal + shippingCost;
-
-  // Load cart on mount
-  useState(() => {
+  // Load addresses
+  useEffect(() => {
     if (status === 'authenticated') {
-      loadCart();
+      loadAddresses();
     }
-  });
+  }, [status]);
 
-  const loadCart = async () => {
+  const loadAddresses = async () => {
+    setLoadingAddresses(true);
     try {
-      const res = await fetch('/api/cart');
-      if (res.ok) {
-        const data = await res.json();
-        setCart(data.items);
-        setCartTotal(data.total);
+      const response = await fetch('/api/account/address');
+      const result = await response.json();
+
+      if (result.success) {
+        setAddresses(result.data || []);
+        // Auto-select default address
+        const defaultAddr = result.data.find((addr: Address) => addr.isDefault);
+        if (defaultAddr) {
+          setSelectedAddress(defaultAddr.id);
+        } else if (result.data.length > 0) {
+          setSelectedAddress(result.data[0].id);
+        }
+      } else {
+        // Handle array response (your current API format)
+        if (Array.isArray(result)) {
+          setAddresses(result);
+          const defaultAddr = result.find((addr: Address) => addr.isDefault);
+          if (defaultAddr) {
+            setSelectedAddress(defaultAddr.id);
+          } else if (result.length > 0) {
+            setSelectedAddress(result[0].id);
+          }
+        }
       }
     } catch (error) {
-      console.error('Error loading cart:', error);
+      console.error('Error loading addresses:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load addresses',
+        variant: 'error',
+      });
+    } finally {
+      setLoadingAddresses(false);
     }
   };
 
-  const handlePlaceOrder = async () => {
-    if (!session?.user) {
-      router.push('/auth');
+  const handleSaveAddress = async () => {
+    // Validation
+    if (!newAddress.street || !newAddress.city || !newAddress.state || !newAddress.postalCode) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please fill in all required fields',
+        variant: 'error',
+      });
       return;
     }
 
-    setLoading(true);
+    setSavingAddress(true);
 
     try {
-      const res = await fetch('/api/orders', {
+      const response = await fetch('/api/account/address', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shippingAddress: shippingInfo,
-          paymentMethod,
-          deliveryOption,
-          totalAmount: total,
-          items: cart.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.product.price,
-            selectedColor: item.selectedColor,
-          })),
-        }),
+        body: JSON.stringify(newAddress),
       });
 
-      if (res.ok) {
-        // Clear cart after successful order
-        await fetch('/api/cart', { method: 'DELETE' });
-        setStep(4);
+      const result = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: 'Address Saved',
+          description: 'Your address has been saved successfully',
+        });
+        
+        // Reload addresses and select the new one
+        await loadAddresses();
+        setSelectedAddress(result.id);
+        setShowAddressForm(false);
+        
+        // Reset form
+        setNewAddress({
+          street: '',
+          city: '',
+          state: '',
+          postalCode: '',
+          country: 'India',
+          isDefault: false,
+        });
       } else {
-        const error = await res.json();
-        alert(error.error || 'Failed to place order');
+        throw new Error(result.error || 'Failed to save address');
       }
-    } catch (error) {
-      console.error('Error placing order:', error);
-      alert('Failed to place order. Please try again.');
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save address',
+        variant: 'error',
+      });
     } finally {
-      setLoading(false);
+      setSavingAddress(false);
     }
   };
 
+  const handlePayment = async () => {
+    // Validation
+    if (!selectedAddress) {
+      toast({
+        title: 'Select Address',
+        description: 'Please select a shipping address',
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (!mobileNumber || mobileNumber.length !== 10) {
+      toast({
+        title: 'Mobile Number Required',
+        description: 'Please enter a valid 10-digit mobile number',
+        variant: 'error',
+      });
+      return;
+    }
+
+    if (items.length === 0) {
+      toast({
+        title: 'Empty Cart',
+        description: 'Your cart is empty',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setProcessingPayment(true);
+
+    try {
+      // Initiate PhonePe payment
+      const response = await fetch('/api/payment/phonepe/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: total,
+          addressId: selectedAddress,
+          mobileNumber: mobileNumber,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success && result.data?.redirectUrl) {
+        // Show loading message
+        toast({
+          title: 'Redirecting to Payment',
+          description: 'Please wait while we redirect you to PhonePe...',
+        });
+
+        // Small delay for better UX
+        setTimeout(() => {
+          // Redirect to PhonePe payment page
+          window.location.href = result.data.redirectUrl;
+        }, 1000);
+      } else {
+        throw new Error(result.error || 'Failed to initiate payment');
+      }
+    } catch (error: any) {
+      console.error('Payment error:', error);
+      toast({
+        title: 'Payment Failed',
+        description: error.message || 'Something went wrong',
+        variant: 'error',
+      });
+      setProcessingPayment(false);
+    }
+  };
+
+  // Redirect if not authenticated
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-[#C47456]" />
       </div>
     );
   }
 
   if (!session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Please sign in to checkout</h2>
-          <Button onClick={() => router.push('/auth')}>Sign In</Button>
-        </div>
-      </div>
-    );
+    router.push('/auth');
+    return null;
   }
 
-  if (cart.length === 0 && step !== 4) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Your cart is empty</h2>
-          <Button onClick={() => router.push('/products')}>Continue Shopping</Button>
-        </div>
-      </div>
-    );
+  if (items.length === 0) {
+    router.push('/cart');
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-6xl mx-auto px-6">
-        <h1 className="font-serif text-4xl font-bold text-[#2C2C2C] mb-8">Checkout</h1>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
 
-        <div className="flex items-center justify-center mb-12">
-          <div className="flex items-center">
-            <div
-              className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                step >= 1 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'
-              }`}
-            >
-              1
-            </div>
-            <div className={`w-24 h-1 ${step >= 2 ? 'bg-[#2C2C2C]' : 'bg-gray-300'}`} />
-            <div
-              className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                step >= 2 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'
-              }`}
-            >
-              2
-            </div>
-            <div className={`w-24 h-1 ${step >= 3 ? 'bg-[#2C2C2C]' : 'bg-gray-300'}`} />
-            <div
-              className={`flex items-center justify-center w-10 h-10 rounded-full ${
-                step >= 3 ? 'bg-[#2C2C2C] text-white' : 'bg-gray-300'
-              }`}
-            >
-              3
-            </div>
-          </div>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Shipping Address Section */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
+                  Shipping Address
+                </h2>
+                <Dialog open={showAddressForm} onOpenChange={setShowAddressForm}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Add New Address</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <Label>Street Address *</Label>
+                        <Input
+                          value={newAddress.street}
+                          onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
+                          placeholder="123 Main Street, Apartment 4B"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>City *</Label>
+                          <Input
+                            value={newAddress.city}
+                            onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                            placeholder="Mumbai"
+                          />
+                        </div>
+                        <div>
+                          <Label>State *</Label>
+                          <Input
+                            value={newAddress.state}
+                            onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
+                            placeholder="Maharashtra"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Postal Code *</Label>
+                          <Input
+                            value={newAddress.postalCode}
+                            onChange={(e) => {
+                              const value = e.target.value.replace(/\D/g, '');
+                              if (value.length <= 6) {
+                                setNewAddress({ ...newAddress, postalCode: value });
+                              }
+                            }}
+                            placeholder="400001"
+                            maxLength={6}
+                          />
+                        </div>
+                        <div>
+                          <Label>Country</Label>
+                          <Input
+                            value={newAddress.country}
+                            onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
+                            placeholder="India"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="default"
+                          checked={newAddress.isDefault}
+                          onCheckedChange={(checked) =>
+                            setNewAddress({ ...newAddress, isDefault: checked as boolean })
+                          }
+                        />
+                        <Label htmlFor="default" className="cursor-pointer">
+                          Set as default address
+                        </Label>
+                      </div>
+                      <div className="flex gap-3 pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAddressForm(false)}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSaveAddress}
+                          disabled={savingAddress}
+                          className="flex-1 bg-[#C47456] hover:bg-[#B36647]"
+                        >
+                          {savingAddress ? 'Saving...' : 'Save Address'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              {step === 1 && (
-                <div>
-                  <h2 className="text-2xl font-bold mb-6">Shipping Information</h2>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <Label>Full Name</Label>
-                      <Input
-                        value={shippingInfo.fullName}
-                        onChange={(e) =>
-                          setShippingInfo({ ...shippingInfo, fullName: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>Phone</Label>
-                      <Input
-                        type="tel"
-                        value={shippingInfo.phone}
-                        onChange={(e) =>
-                          setShippingInfo({ ...shippingInfo, phone: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      <Input
-                        type="email"
-                        value={shippingInfo.email}
-                        onChange={(e) =>
-                          setShippingInfo({ ...shippingInfo, email: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <Label>Address</Label>
-                      <Input
-                        value={shippingInfo.address}
-                        onChange={(e) =>
-                          setShippingInfo({ ...shippingInfo, address: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>City</Label>
-                      <Input
-                        value={shippingInfo.city}
-                        onChange={(e) =>
-                          setShippingInfo({ ...shippingInfo, city: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>State</Label>
-                      <Input
-                        value={shippingInfo.state}
-                        onChange={(e) =>
-                          setShippingInfo({ ...shippingInfo, state: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>Pincode</Label>
-                      <Input
-                        value={shippingInfo.pincode}
-                        onChange={(e) =>
-                          setShippingInfo({ ...shippingInfo, pincode: e.target.value })
-                        }
-                        required
-                      />
-                    </div>
-                  </div>
-                  <Button className="w-full mt-6 bg-[#2C2C2C]" onClick={() => setStep(2)}>
-                    Continue to Delivery
+              {loadingAddresses ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#C47456]" />
+                </div>
+              ) : addresses.length === 0 ? (
+                <div className="text-center py-8">
+                  <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 mb-4">No addresses found</p>
+                  <Button onClick={() => setShowAddressForm(true)}>
+                    Add Your First Address
                   </Button>
                 </div>
-              )}
-
-              {step === 2 && (
-                <div>
-                  <h2 className="text-2xl font-bold mb-6">Delivery Options</h2>
-                  <RadioGroup value={deliveryOption} onValueChange={setDeliveryOption}>
-                    <div className="flex items-center space-x-3 border rounded-lg p-4 mb-3">
-                      <RadioGroupItem value="standard" id="standard" />
-                      <Label htmlFor="standard" className="flex-1 cursor-pointer">
-                        <div className="font-semibold">Standard Delivery (FREE)</div>
-                        <div className="text-sm text-gray-600">2-4 weeks</div>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-3 border rounded-lg p-4">
-                      <RadioGroupItem value="express" id="express" />
-                      <Label htmlFor="express" className="flex-1 cursor-pointer">
-                        <div className="font-semibold">Express Delivery (₹2,000)</div>
-                        <div className="text-sm text-gray-600">1-2 weeks</div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                  <div className="flex gap-4 mt-6">
-                    <Button variant="outline" className="flex-1" onClick={() => setStep(1)}>
-                      Back
-                    </Button>
-                    <Button className="flex-1 bg-[#2C2C2C]" onClick={() => setStep(3)}>
-                      Continue to Payment
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {step === 3 && (
-                <div>
-                  <h2 className="text-2xl font-bold mb-6">Payment Method</h2>
-                  <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <div className="flex items-center space-x-3 border rounded-lg p-4 mb-3">
-                      <RadioGroupItem value="card" id="card" />
-                      <Label htmlFor="card" className="flex-1 cursor-pointer">
-                        <div className="font-semibold">Credit/Debit Card</div>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-3 border rounded-lg p-4 mb-3">
-                      <RadioGroupItem value="upi" id="upi" />
-                      <Label htmlFor="upi" className="flex-1 cursor-pointer">
-                        <div className="font-semibold">UPI</div>
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-3 border rounded-lg p-4">
-                      <RadioGroupItem value="cod" id="cod" />
-                      <Label htmlFor="cod" className="flex-1 cursor-pointer">
-                        <div className="font-semibold">Cash on Delivery</div>
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                  <div className="flex gap-4 mt-6">
-                    <Button variant="outline" className="flex-1" onClick={() => setStep(2)}>
-                      Back
-                    </Button>
-                    <Button
-                      className="flex-1 bg-[#2C2C2C]"
-                      onClick={handlePlaceOrder}
-                      disabled={loading}
+              ) : (
+                <div className="space-y-3">
+                  {addresses.map((address) => (
+                    <label
+                      key={address.id}
+                      className={`block p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                        selectedAddress === address.id
+                          ? 'border-[#C47456] bg-orange-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
                     >
-                      {loading ? 'Placing Order...' : 'Place Order'}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {step === 4 && (
-                <div className="text-center py-12">
-                  <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-6" />
-                  <h2 className="text-3xl font-bold mb-4">Order Placed Successfully!</h2>
-                  <p className="text-gray-600 mb-8">
-                    Thank you for your purchase. We'll send you an email confirmation shortly.
-                  </p>
-                  <div className="flex gap-4 justify-center">
-                    <Button variant="outline" onClick={() => router.push('/account')}>
-                      View Orders
-                    </Button>
-                    <Button onClick={() => router.push('/products')} className="bg-[#2C2C2C]">
-                      Continue Shopping
-                    </Button>
-                  </div>
+                      <input
+                        type="radio"
+                        name="address"
+                        value={address.id}
+                        checked={selectedAddress === address.id}
+                        onChange={(e) => setSelectedAddress(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {address.street}
+                          </p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {address.city}, {address.state} {address.postalCode}
+                          </p>
+                          <p className="text-sm text-gray-600">{address.country}</p>
+                          {address.isDefault && (
+                            <span className="inline-block mt-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        {selectedAddress === address.id && (
+                          <CheckCircle className="w-5 h-5 text-[#C47456] flex-shrink-0" />
+                        )}
+                      </div>
+                    </label>
+                  ))}
                 </div>
               )}
             </div>
+
+            {/* Contact Information Section */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Phone className="w-5 h-5" />
+                Contact Information
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">
+                    Mobile Number for Payment *
+                  </Label>
+                  <Input
+                    type="tel"
+                    placeholder="Enter 10-digit mobile number"
+                    value={mobileNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      if (value.length <= 10) {
+                        setMobileNumber(value);
+                      }
+                    }}
+                    className="mt-1"
+                    maxLength={10}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This number will be used for payment verification and order updates
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Email</Label>
+                  <Input
+                    type="email"
+                    value={session.user?.email || ''}
+                    disabled
+                    className="mt-1 bg-gray-50"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Order confirmation will be sent to this email
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Method Section */}
+           
           </div>
 
+          {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-24">
-              <h3 className="text-xl font-bold mb-4">Order Summary</h3>
-              <div className="space-y-4 mb-6">
-                {cart.map((item) => (
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-24">
+              <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+
+              {/* Items */}
+              <div className="space-y-3 mb-6 max-h-80 overflow-y-auto">
+                {items.map((item) => (
                   <div key={item.id} className="flex gap-3">
-                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                      {item.product.images[0] && (
+                    <div className="relative w-16 h-16 bg-gray-100 rounded flex-shrink-0 overflow-hidden">
+                      {item.product?.image ? (
                         <Image
-                          src={item.product.images[0]}
-                          alt={item.product.name}
-                          width={64}
-                          height={64}
-                          className="w-full h-full object-cover"
+                          src={item.product.image}
+                          alt={item.product.name || ''}
+                          fill
+                          className="object-cover"
                         />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                          No image
+                        </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate">{item.product.name}</p>
-                      <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
-                      <p className="text-sm font-bold">
-                        ₹{(item.product.price * item.quantity).toLocaleString()}
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {item.product?.name}
                       </p>
+                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                      {item.color && (
+                        <p className="text-xs text-gray-500">Color: {item.color}</p>
+                      )}
                     </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      ₹{((item.product?.price || 0) * item.quantity).toLocaleString('en-IN')}
+                    </p>
                   </div>
                 ))}
               </div>
+
               <Separator className="my-4" />
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+
+              {/* Totals */}
+              <div className="space-y-3">
+                <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span>₹{cartTotal.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shipping</span>
-                  <span>
-                    {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toLocaleString()}`}
+                  <span className="font-medium">
+                    ₹{subtotal.toLocaleString('en-IN')}
                   </span>
                 </div>
-                <Separator className="my-2" />
+                <div className="flex justify-between text-gray-600">
+                  <span>Shipping</span>
+                  <span className="font-medium">
+                    {shipping === 0 ? (
+                      <span className="text-green-600">FREE</span>
+                    ) : (
+                      `₹${shipping.toLocaleString('en-IN')}`
+                    )}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Tax (GST 18%)</span>
+                  <span className="font-medium">
+                    ₹{tax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                
+                {subtotal < 50000 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                    Add ₹{(50000 - subtotal).toLocaleString('en-IN')} more for free shipping!
+                  </div>
+                )}
+
+                <Separator className="my-3" />
+                
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
-                  <span>₹{total.toLocaleString()}</span>
+                  <span className="text-[#C47456]">
+                    ₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
+
+              <Button
+                className="w-full mt-6 bg-[#C47456] hover:bg-[#B36647] text-white py-6 text-lg font-semibold"
+                onClick={handlePayment}
+                disabled={processingPayment || !selectedAddress || !mobileNumber}
+              >
+                {processingPayment ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Redirecting 
+                  </>
+                ) : (
+                  'Pay'
+                )}
+              </Button>
+
+              <p className="text-xs text-gray-500 text-center mt-4">
+                🔒 Secure payment
+              </p>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
