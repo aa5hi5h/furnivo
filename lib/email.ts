@@ -31,7 +31,7 @@ interface OrderEmailData {
 
 export async function sendOrderConfirmationEmail(data: OrderEmailData) {
   try {
-    const emailHtml = render(
+    const emailHtml = await  render(
       OrderConfirmationEmail({
         customerName: data.customerName,
         orderId: data.orderId,
