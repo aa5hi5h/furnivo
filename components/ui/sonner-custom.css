@@ -1,0 +1,31 @@
+/* sonner-custom.css */
+
+.sonner-success {
+    background: #16a34a !important;
+    color: white !important;
+    border: none !important;
+  }
+  
+  .sonner-error {
+    background: #dc2626 !important;
+    color: white !important;
+    border: none !important;
+  }
+  
+  .sonner-info {
+    background: #2563eb !important;
+    color: white !important;
+    border: none !important;
+  }
+  
+  .sonner-warning {
+    background: #ea580c !important;
+    color: white !important;
+    border: none !important;
+  }
+  
+  .sonner-message {
+    background: #64748b !important;
+    color: white !important;
+    border: none !important;
+  }

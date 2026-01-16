@@ -1,7 +1,9 @@
 // lib/email.ts
 import { Resend } from 'resend';
 import { render } from '@react-email/render';
-import OrderConfirmationEmail from './../app/emails/order-confirmation';
+import OrderConfirmationEmail from '@/app/emails/order-confirmation';
+import AdminOrderNotificationEmail from '@/app/emails/admin-order-confirmation';
+import DeliveryNotificationEmail from '@/app/emails/delivery-notification';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -29,9 +31,15 @@ interface OrderEmailData {
   };
 }
 
+interface AdminOrderNotificationData extends OrderEmailData {
+  customerPhone?: string;
+  paymentMethod: string;
+}
+
+// ============ USER ORDER CONFIRMATION EMAIL ============
 export async function sendOrderConfirmationEmail(data: OrderEmailData) {
   try {
-    const emailHtml = await  render(
+    const emailHtml = await render(
       OrderConfirmationEmail({
         customerName: data.customerName,
         orderId: data.orderId,
@@ -53,11 +61,11 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData) {
     });
 
     if (error) {
-      console.error('Error sending email:', error);
+      console.error('Error sending user confirmation email:', error);
       throw error;
     }
 
-    console.log('Order confirmation email sent:', emailData);
+    console.log('Order confirmation email sent to user:', emailData);
     return { success: true, data: emailData };
   } catch (error) {
     console.error('Failed to send order confirmation email:', error);
@@ -65,6 +73,84 @@ export async function sendOrderConfirmationEmail(data: OrderEmailData) {
   }
 }
 
+// ============ ADMIN ORDER NOTIFICATION EMAIL ============
+export async function sendAdminOrderNotificationEmail(data: AdminOrderNotificationData) {
+  try {
+    const emailHtml = await render(
+      AdminOrderNotificationEmail({
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        orderId: data.orderId,
+        orderDate: data.orderDate,
+        items: data.items,
+        subtotal: data.subtotal,
+        shipping: data.shipping,
+        tax: data.tax,
+        total: data.total,
+        shippingAddress: data.shippingAddress,
+        paymentMethod: data.paymentMethod,
+      })
+    );
+
+    const { data: emailData, error } = await resend.emails.send({
+      from: `${process.env.BUSINESS_NAME} <${process.env.BUSINESS_EMAIL}>`,
+      to: process.env.ADMIN_EMAIL!,
+      replyTo: data.customerEmail,
+      subject: `[NEW ORDER] ${data.orderId} - ${data.customerName}`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('Error sending admin notification email:', error);
+      throw error;
+    }
+
+    console.log('Order notification email sent to admin:', emailData);
+    return { success: true, data: emailData };
+  } catch (error) {
+    console.error('Failed to send admin notification email:', error);
+    return { success: false, error };
+  }
+}
+
+// ============ DELIVERY NOTIFICATION EMAIL ============
+export async function sendDeliveryNotificationEmail(
+  customerEmail: string,
+  customerName: string,
+  orderId: string,
+  trackingNumber?: string
+) {
+  try {
+    const emailHtml = await render(
+      DeliveryNotificationEmail({
+        customerName,
+        orderId,
+        trackingNumber,
+      })
+    );
+
+    const { data: emailData, error } = await resend.emails.send({
+      from: `${process.env.BUSINESS_NAME} <${process.env.BUSINESS_EMAIL}>`,
+      to: customerEmail,
+      subject: `Your Order ${orderId} Has Been Delivered! 🎉`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('Error sending delivery notification email:', error);
+      throw error;
+    }
+
+    console.log('Delivery notification email sent:', emailData);
+    return { success: true, data: emailData };
+  } catch (error) {
+    console.error('Failed to send delivery notification email:', error);
+    return { success: false, error };
+  }
+}
+
+// ============ ORDER STATUS UPDATE EMAIL ============
 export async function sendOrderStatusEmail(
   customerEmail: string,
   customerName: string,

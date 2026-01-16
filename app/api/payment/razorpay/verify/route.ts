@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { verifyRazorpaySignature } from '@/lib/razorpay';
 import { prisma } from '@/lib/prisma';
-import { sendOrderConfirmationEmail } from '@/lib/email';
+import { sendOrderConfirmationEmail, sendAdminOrderNotificationEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     // Get order
     const order = await prisma.order.findUnique({
       where: { id: dbOrderId },
-      include: { user: true },
+      include: { user: true, address: true },
     });
 
     if (!order) {
@@ -119,47 +119,59 @@ export async function POST(req: NextRequest) {
 
     console.log('Cart cleared');
 
-    // Send order confirmation email
-    try {
-      const subtotal = updatedOrder.orderItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
-      );
-      const shipping = subtotal > 50000 ? 0 : 500;
-      const tax = subtotal * 0.18;
+    // Prepare email data
+    const subtotal = updatedOrder.orderItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const shipping = subtotal > 50000 ? 0 : 500;
+    const tax = subtotal * 0.18;
+    const orderDate = new Date(order.createdAt).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
 
-      await sendOrderConfirmationEmail({
-        customerEmail: order.user.email,
-        customerName: order.user.name,
-        orderId: order.id,
-        orderDate: new Date(order.createdAt).toLocaleDateString('en-IN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
-        items: updatedOrder.orderItems.map((item) => ({
-          name: item.product.name,
-          quantity: item.quantity,
-          price: item.price,
-          image: item.product.image,
-        })),
-        subtotal,
-        shipping,
-        tax,
-        total: order.totalAmount,
-        shippingAddress: {
-          street: updatedOrder.address!.street,
-          city: updatedOrder.address!.city,
-          state: updatedOrder.address!.state,
-          postalCode: updatedOrder.address!.postalCode,
-          country: updatedOrder.address!.country,
-        },
-      });
+    const emailData = {
+      customerEmail: order.user.email,
+      customerName: order.user.name,
+      orderId: order.id,
+      orderDate,
+      items: updatedOrder.orderItems.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.price,
+        image: item.product.image,
+      })),
+      subtotal,
+      shipping,
+      tax,
+      total: order.totalAmount,
+      shippingAddress: {
+        street: updatedOrder.address!.street,
+        city: updatedOrder.address!.city,
+        state: updatedOrder.address!.state,
+        postalCode: updatedOrder.address!.postalCode,
+        country: updatedOrder.address!.country,
+      },
+    };
 
-      console.log('Confirmation email sent');
-    } catch (emailError) {
-      console.error('Error sending email (non-blocking):', emailError);
-    }
+    // Send emails (non-blocking)
+    Promise.all([
+      // Send confirmation email to customer
+      sendOrderConfirmationEmail(emailData)
+        .then(() => console.log('✓ Customer confirmation email sent'))
+        .catch((err) => console.error('✗ Failed to send customer email:', err)),
+
+      // Send notification email to admin
+      sendAdminOrderNotificationEmail({
+        ...emailData,
+        customerPhone: order.user.phone  || undefined,
+        paymentMethod: 'razorpay',
+      })
+        .then(() => console.log('✓ Admin notification email sent'))
+        .catch((err) => console.error('✗ Failed to send admin email:', err)),
+    ]).catch((err) => console.error('Error in email Promise.all:', err));
 
     return NextResponse.json({
       success: true,

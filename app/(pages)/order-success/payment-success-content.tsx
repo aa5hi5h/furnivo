@@ -122,7 +122,7 @@ export default function PaymentSuccessContent() {
                     </p>
                     <p className="text-lg font-bold text-gray-900 mt-1">
                       ₹
-                      {(order.totalAmount / 100).toLocaleString('en-IN', {
+                      {(order.totalAmount).toLocaleString('en-IN', {
                         minimumFractionDigits: 2,
                       })}
                     </p>

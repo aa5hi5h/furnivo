@@ -43,6 +43,7 @@ import OrderSearchBar from '@/components/admin/OrderSearchBar';
 import CustomerSearchBar from '@/components/admin/CustomerSearchBar';
 import BookingSearchBar from '@/components/admin/BookingSearchbar';
 import AdminProfileDropdown from '@/components/admin/AdminProfileDropdown';
+import { toast } from 'sonner';
 
 interface Product {
   id: string;
@@ -427,6 +428,16 @@ export default function AdminDashboard() {
       });
 
       if (res.ok) {
+
+        const statusMessages: Record<string, string> = {
+          processing: 'Order marked as processing',
+          shipped: 'Order marked as shipped & email sent to customer',
+          delivered: 'Order marked as delivered & delivery email sent to customer',
+          cancelled: 'Order cancelled & cancellation email sent to customer',
+        };
+  
+        toast.success(statusMessages[newStatus] || `Order status updated to ${newStatus}`);
+  
         loadOrders();
         if (viewOrderDetails?.id === orderId) {
           const updated = await res.json();
@@ -435,10 +446,12 @@ export default function AdminDashboard() {
       } else {
         const error = await res.json();
         alert(error.error || 'Failed to update order');
+        toast.error(error.error || 'Failed to update order status');
       }
     } catch (error) {
       console.error('Error updating order:', error);
       alert('Error updating order');
+      toast.error('Error updating order status');
     }
   };
 
