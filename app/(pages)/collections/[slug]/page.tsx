@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, Eye, Heart, ShoppingCart } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useCart } from '@/contexts/cart-context';
 import { QuickViewModal } from '@/components/quick-view-modal';
 import Link from 'next/link';
@@ -57,7 +57,6 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showQuickView, setShowQuickView] = useState(false);
   const [wishlistItemIds, setWishlistItemIds] = useState<Record<string, string>>({});
-  const { toast } = useToast();
   const { addToCart } = useCart();
   const { data: session } = useSession();
 
@@ -120,11 +119,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
       setProducts(data.products || []);
     } catch (error) {
       console.error('Error fetching data:', error);
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to load collection',
-        variant: 'error'
-      });
+      toast.error('Failed to load collection');
     } finally {
       setLoading(false);
     }
@@ -132,11 +127,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
 
   const handleAddToWishlist = async (productId: string) => {
     if (!session?.user?.id) {
-      toast({ 
-        title: 'Authentication required', 
-        description: 'Please sign in to add items to your wishlist',
-        variant: 'error'
-      });
+      toast.error('Please sign in to add items to your wishlist');
       return;
     }
 
@@ -160,10 +151,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
         delete newWishlistMap[productId];
         setWishlistItemIds(newWishlistMap);
 
-        toast({ 
-          title: 'Removed from wishlist', 
-          description: 'Product removed from your wishlist'
-        });
+        toast.success('Removed from wishlist');
       } else {
         // Add to wishlist
         const response = await fetch('/api/wishlist', {
@@ -187,17 +175,10 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
           [productId]: result.data.id
         });
 
-        toast({ 
-          title: 'Added to wishlist', 
-          description: result.message || 'Product added to your wishlist'
-        });
+        toast.success('Product added to your wishlist');
       }
     } catch (error: any) {
-      toast({ 
-        title: 'Error', 
-        description: error.message || 'Failed to update wishlist',
-        variant: 'error'
-      });
+      toast.error(error.message || 'Failed to update wishlist');
     }
   };
 
@@ -253,7 +234,7 @@ export default function CollectionDetailPage({ params }: { params: Promise<{ slu
 
   const handleAddToCart = (productId: string, color: string, quantity: number) => {
     addToCart(productId, quantity, color);
-    toast({ title: 'Added to cart', description: 'Product added successfully' });
+    toast.success('Product added to cart successfully');
   };
 
   return (

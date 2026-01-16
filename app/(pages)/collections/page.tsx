@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import Link from 'next/link';
 
 interface Collection {
@@ -20,7 +20,6 @@ export default function CollectionsPage() {
   const [filteredCollections, setFilteredCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('featured');
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchCollections();
@@ -40,11 +39,7 @@ export default function CollectionsPage() {
       setFilteredCollections(data);
     } catch (error) {
       console.error('Error fetching collections:', error);
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to load collections',
-        variant: 'error',
-      });
+      toast.error('Failed to load collections');
     } finally {
       setLoading(false);
     }

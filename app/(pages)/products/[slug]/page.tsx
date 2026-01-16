@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import ReviewSection from '@/components/reviews/ReviewSection';
 import RelatedProducts from '@/components/products/RelatedProduct';
-
+import {toast } from "sonner"
 type Product = {
   id: string;
   name: string;
@@ -48,7 +48,6 @@ export default function ProductDetailPage() {
   const params = useParams();
   const slug = params.slug as string;
   const { addToCart } = useCart();
-  const { toast } = useToast();
   const { data: session } = useSession();
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -100,11 +99,7 @@ export default function ProductDetailPage() {
 
   const toggleWishlist = async () => {
     if (!session?.user?.id) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to add items to your wishlist',
-        variant: 'error',
-      });
+      toast.error('Authentication required', {description: 'Please sign in to add items to your wishlist'});
       return;
     }
 
@@ -126,10 +121,7 @@ export default function ProductDetailPage() {
 
         setIsWishlisted(false);
         setWishlistItemId(null);
-        toast({
-          title: 'Removed from wishlist',
-          description: 'Product removed from your wishlist',
-        });
+        toast.success('Removed from wishlist', {description: 'Product removed from your wishlist'});
       } else {
         const response = await fetch('/api/wishlist', {
           method: 'POST',
@@ -148,18 +140,11 @@ export default function ProductDetailPage() {
 
         setIsWishlisted(true);
         setWishlistItemId(result.data.id);
-        toast({
-          title: 'Added to wishlist',
-          description: result.message || 'Product added to your wishlist',
-        });
+        toast.success('Added to wishlist', {description: result.message || 'Product added to your wishlist'});
       }
     } catch (error: any) {
       console.error('Wishlist error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update wishlist',
-        variant: 'error',
-      });
+      toast.error('Error',{description: error.message || 'Failed to update wishlist',});
     } finally {
       setIsTogglingWishlist(false);
     }
@@ -187,10 +172,7 @@ export default function ProductDetailPage() {
   const handleAddToCart = () => {
     if (product) {
       addToCart(product.id, quantity, selectedColor);
-      toast({
-        title: 'Added to cart',
-        description: `${product.name} has been added to your cart`,
-      });
+      toast.success('Added to cart', {description: `${product.name} has been added to your cart`});
     }
   };
 

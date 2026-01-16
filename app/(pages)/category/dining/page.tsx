@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Eye, Heart, Shuffle } from 'lucide-react';
 import Link from 'next/link';
 import { useCart } from '@/contexts/cart-context';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
 
 interface Product {
@@ -63,7 +63,6 @@ export default function DiningPage() {
   const [showQuickView, setShowQuickView] = useState(false);
   const [wishlistItemIds, setWishlistItemIds] = useState<Record<string, string>>({});
   const { addToCart } = useCart();
-  const { toast } = useToast();
   const { data: session } = useSession();
 
   useEffect(() => {
@@ -113,11 +112,7 @@ export default function DiningPage() {
       setFilteredProducts(data.data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({ 
-        title: 'Error', 
-        description: 'Failed to load products',
-        variant: 'error'
-      });
+      toast.error('Failed to load products');
     } finally {
       setLoading(false);
     }
@@ -205,16 +200,12 @@ export default function DiningPage() {
 
   const handleAddToCart = (productId: string, color: string, quantity: number) => {
     addToCart(productId, quantity, color);
-    toast({ title: 'Added to cart', description: 'Product added successfully' });
+    toast.success('Product added to cart successfully');
   };
 
   const handleAddToWishlist = async (productId: string) => {
     if (!session?.user?.id) {
-      toast({ 
-        title: 'Authentication required', 
-        description: 'Please sign in to add items to your wishlist',
-        variant: 'error'
-      });
+      toast.error('Please sign in to add items to your wishlist');
       return;
     }
 
@@ -238,10 +229,7 @@ export default function DiningPage() {
         delete newWishlistMap[productId];
         setWishlistItemIds(newWishlistMap);
 
-        toast({ 
-          title: 'Removed from wishlist', 
-          description: 'Product removed from your wishlist'
-        });
+        toast.success('Removed from wishlist');
       } else {
         // Add to wishlist
         const response = await fetch('/api/wishlist', {
@@ -265,18 +253,11 @@ export default function DiningPage() {
           [productId]: result.data.id
         });
 
-        toast({ 
-          title: 'Added to wishlist', 
-          description: result.message || 'Product added to your wishlist'
-        });
+        toast.success('Product added to your wishlist');
       }
     } catch (error: any) {
       console.error('Wishlist error:', error);
-      toast({ 
-        title: 'Error', 
-        description: error.message || 'Failed to update wishlist',
-        variant: 'error'
-      });
+      toast.error(error.message || 'Failed to update wishlist');
     }
   };
 

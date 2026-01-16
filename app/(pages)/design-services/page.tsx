@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Video, Home, Zap } from 'lucide-react';
 
 export default function DesignServicesPage() {
@@ -24,7 +24,6 @@ export default function DesignServicesPage() {
     message: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
 
   const services = [
     {
@@ -90,10 +89,7 @@ export default function DesignServicesPage() {
         throw new Error(result.error || 'Failed to submit request');
       }
 
-      toast({
-        title: 'Success',
-        description: 'Your design consultation request has been submitted. We will contact you soon!',
-      });
+      toast.success('Your design consultation request has been submitted. We will contact you soon!');
 
       setShowBookingModal(false);
       setFormData({
@@ -108,11 +104,7 @@ export default function DesignServicesPage() {
       });
     } catch (error) {
       console.error('Error submitting form:', error);
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to submit your request. Please try again.',
-        variant: 'error',
-      });
+      toast.error(error instanceof Error ? error.message : 'Failed to submit your request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

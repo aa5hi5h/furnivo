@@ -8,6 +8,7 @@ import { Heart, Trash2, Share2, Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import WishlistShareModal from '@/components/wishlist/WishlistShareModal';
+import {toast} from "sonner"
 
 interface Product {
   id: string;
@@ -45,7 +46,6 @@ interface WishlistItem {
 export default function WishlistPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
   
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +58,6 @@ export default function WishlistPage() {
       return;
     }
 
-    // If not authenticated, redirect
     if (status === 'unauthenticated') {
       router.push('/auth');
       return;
@@ -79,19 +78,11 @@ export default function WishlistPage() {
       if (result.success) {
         setWishlist(result.data || []);
       } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to load wishlist',
-          variant: 'error',
-        });
+        toast.error('Failed to load wishlist');
       }
     } catch (error) {
       console.error('Error loading wishlist:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load wishlist',
-        variant: 'error',
-      });
+      toast.error('Failed to load wishlist');
     } finally {
       setLoading(false);
     }
@@ -108,24 +99,13 @@ export default function WishlistPage() {
 
       if (result.success) {
         setWishlist(prev => prev.filter(item => item.id !== wishlistItemId));
-        toast({
-          title: 'Removed',
-          description: 'Item removed from wishlist',
-        });
+        toast.success('Item removed from wishlist');
       } else {
-        toast({
-          title: 'Error',
-          description: 'Failed to remove item',
-          variant: 'error',
-        });
+        toast.error('Failed to remove item');
       }
     } catch (error) {
       console.error('Error removing item:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to remove item',
-        variant: 'error',
-      });
+      toast.error('Failed to remove item');
     } finally {
       setRemovingId(null);
     }
@@ -144,17 +124,10 @@ export default function WishlistPage() {
       );
       
       setWishlist([]);
-      toast({
-        title: 'Cleared',
-        description: 'Wishlist has been cleared',
-      });
+      toast.success('Wishlist has been cleared');
     } catch (error) {
       console.error('Error clearing wishlist:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to clear wishlist',
-        variant: 'error',
-      });
+      toast.error('Failed to clear wishlist');
     }
   };
 

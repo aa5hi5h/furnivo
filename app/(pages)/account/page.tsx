@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Heart, MapPin, Settings, LogOut } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface Order {
   id: string;
@@ -46,7 +46,6 @@ interface Address {
 export default function AccountPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { toast } = useToast();
   
   const [orders, setOrders] = useState<Order[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -91,11 +90,7 @@ export default function AccountPage() {
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load account data',
-        variant: 'error',
-      });
+      toast.error('Failed to load account data');
     } finally {
       setLoading(false);
     }
@@ -122,20 +117,13 @@ export default function AccountPage() {
       if (res.ok) {
         const updatedProfile = await res.json();
         setProfile(updatedProfile);
-        toast({
-          title: 'Success',
-          description: 'Profile updated successfully',
-        });
+        toast.success('Profile updated successfully');
       } else {
         throw new Error('Failed to update profile');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update profile',
-        variant: 'error',
-      });
+      toast.error('Failed to update profile');
     } finally {
       setSaving(false);
     }

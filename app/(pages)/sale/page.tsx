@@ -8,7 +8,7 @@ import { useCart } from '@/contexts/cart-context';
 import { useToast } from '@/hooks/use-toast';
 import { QuickViewModal } from '@/components/quick-view-modal';
 import Link from 'next/link';
-
+import {toast} from "sonner"
 interface Product {
   id: string;
   name: string;
@@ -34,7 +34,6 @@ export default function SalePage() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showQuickView, setShowQuickView] = useState(false);
   const { addToCart } = useCart();
-  const { toast } = useToast();
 
   useEffect(() => {
     fetchSaleProducts();
@@ -71,7 +70,7 @@ export default function SalePage() {
       }
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast({ title: 'Error', description: 'Failed to load sale products', variant: 'error' });
+      toast.error('Failed to load sale products');
     } finally {
       setLoading(false);
     }
@@ -124,11 +123,11 @@ export default function SalePage() {
 
   const handleAddToCart = (productId: string, color: string, quantity: number) => {
     addToCart(productId, quantity, color);
-    toast({ title: 'Added to cart', description: 'Product added successfully' });
+    toast.success('Product added successfully');
   };
 
   const handleAddToWishlist = (productId: string) => {
-    toast({ title: 'Added to wishlist', description: 'Product saved to wishlist' });
+    toast.success('Product saved to wishlist');
   };
 
   return (

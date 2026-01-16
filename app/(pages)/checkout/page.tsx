@@ -5,12 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { 
-  Smartphone, 
+  CreditCard,
   CheckCircle, 
   Phone, 
   MapPin, 
   Plus,
-  Edit,
   Loader2
 } from 'lucide-react';
 import { useCart } from '@/contexts/cart-context';
@@ -18,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -51,11 +50,16 @@ interface CartItem {
   };
 }
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 export default function CheckoutPage() {
   const { items } = useCart();
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useToast();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
@@ -84,6 +88,20 @@ export default function CheckoutPage() {
   const tax = subtotal * 0.18;
   const total = subtotal + shipping + tax;
 
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
   // Load addresses
   useEffect(() => {
     if (status === 'authenticated') {
@@ -99,7 +117,6 @@ export default function CheckoutPage() {
 
       if (result.success) {
         setAddresses(result.data || []);
-        // Auto-select default address
         const defaultAddr = result.data.find((addr: Address) => addr.isDefault);
         if (defaultAddr) {
           setSelectedAddress(defaultAddr.id);
@@ -107,7 +124,6 @@ export default function CheckoutPage() {
           setSelectedAddress(result.data[0].id);
         }
       } else {
-        // Handle array response (your current API format)
         if (Array.isArray(result)) {
           setAddresses(result);
           const defaultAddr = result.find((addr: Address) => addr.isDefault);
@@ -120,24 +136,15 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load addresses',
-        variant: 'error',
-      });
+      toast.error('Failed to load addresses');
     } finally {
       setLoadingAddresses(false);
     }
   };
 
   const handleSaveAddress = async () => {
-    // Validation
     if (!newAddress.street || !newAddress.city || !newAddress.state || !newAddress.postalCode) {
-      toast({
-        title: 'Validation Error',
-        description: 'Please fill in all required fields',
-        variant: 'error',
-      });
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -153,17 +160,12 @@ export default function CheckoutPage() {
       const result = await response.json();
 
       if (response.ok) {
-        toast({
-          title: 'Address Saved',
-          description: 'Your address has been saved successfully',
-        });
+        toast.success('Address saved successfully');
         
-        // Reload addresses and select the new one
         await loadAddresses();
         setSelectedAddress(result.id);
         setShowAddressForm(false);
         
-        // Reset form
         setNewAddress({
           street: '',
           city: '',
@@ -176,83 +178,102 @@ export default function CheckoutPage() {
         throw new Error(result.error || 'Failed to save address');
       }
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to save address',
-        variant: 'error',
-      });
+      toast.error(error.message || 'Failed to save address');
     } finally {
       setSavingAddress(false);
     }
   };
 
   const handlePayment = async () => {
-    // Validation
     if (!selectedAddress) {
-      toast({
-        title: 'Select Address',
-        description: 'Please select a shipping address',
-        variant: 'error',
-      });
+      toast.error('Please select a shipping address');
       return;
     }
 
     if (!mobileNumber || mobileNumber.length !== 10) {
-      toast({
-        title: 'Mobile Number Required',
-        description: 'Please enter a valid 10-digit mobile number',
-        variant: 'error',
-      });
+      toast.error('Please enter a valid 10-digit mobile number');
       return;
     }
 
     if (items.length === 0) {
-      toast({
-        title: 'Empty Cart',
-        description: 'Your cart is empty',
-        variant: 'error',
-      });
+      toast.error('Your cart is empty');
       return;
     }
 
     setProcessingPayment(true);
 
     try {
-      // Initiate PhonePe payment
-      const response = await fetch('/api/payment/phonepe/initiate', {
+      // Create Razorpay order
+      const response = await fetch('/api/payment/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: total,
           addressId: selectedAddress,
-          mobileNumber: mobileNumber,
         }),
       });
 
       const result = await response.json();
 
-      if (result.success && result.data?.redirectUrl) {
-        // Show loading message
-        toast({
-          title: 'Redirecting to Payment',
-          description: 'Please wait while we redirect you to PhonePe...',
-        });
-
-        // Small delay for better UX
-        setTimeout(() => {
-          // Redirect to PhonePe payment page
-          window.location.href = result.data.redirectUrl;
-        }, 1000);
-      } else {
-        throw new Error(result.error || 'Failed to initiate payment');
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to create order');
       }
+
+      const options = {
+        key: result.data.key,
+        amount: result.data.amount,
+        currency: result.data.currency,
+        name: 'FURNIVO',
+        description: 'Furniture Order Payment',
+        order_id: result.data.orderId,
+        handler: async function (response: any) {
+          try {
+            const verifyResponse = await fetch('/api/payment/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                dbOrderId: result.data.dbOrderId,
+              }),
+            });
+
+            const verifyResult = await verifyResponse.json();
+
+            if (verifyResult.success) {
+              toast.success('Payment successful! Your order has been placed');
+              router.push(`/order-success?orderId=${verifyResult.data.orderId}`);
+            } else {
+              throw new Error(verifyResult.error);
+            }
+          } catch (error: any) {
+            console.error('Verification error:', error);
+            toast.error(error.message || 'Could not verify payment');
+            setProcessingPayment(false);
+          }
+        },
+        prefill: {
+          name: session?.user?.name || '',
+          email: session?.user?.email || '',
+          contact: mobileNumber || '',
+        },
+        theme: {
+          color: '#C47456',
+        },
+        modal: {
+          ondismiss: function () {
+            setProcessingPayment(false);
+            toast.error('You cancelled the payment');
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (error: any) {
       console.error('Payment error:', error);
-      toast({
-        title: 'Payment Failed',
-        description: error.message || 'Something went wrong',
-        variant: 'error',
-      });
+      toast.error(error.message || 'Something went wrong');
       setProcessingPayment(false);
     }
   };
@@ -487,7 +508,23 @@ export default function CheckoutPage() {
             </div>
 
             {/* Payment Method Section */}
-           
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
+              <div className="space-y-3">
+                <div className="p-4 border-2 border-[#C47456] bg-orange-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <CreditCard className="w-6 h-6 text-[#C47456]" />
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">Payment</p>
+                      <p className="text-sm text-gray-600">
+                        Cards, UPI, Netbanking, Wallets
+                      </p>
+                    </div>
+                    <CheckCircle className="w-5 h-5 text-[#C47456]" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Order Summary Sidebar */}
@@ -580,7 +617,7 @@ export default function CheckoutPage() {
                 {processingPayment ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Redirecting 
+                    Redirecting...
                   </>
                 ) : (
                   'Pay'
