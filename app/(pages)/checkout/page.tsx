@@ -4,14 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
-import { 
-  CreditCard,
-  CheckCircle, 
-  Phone, 
-  MapPin, 
-  Plus,
-  Loader2
-} from 'lucide-react';
+import { CreditCard,CheckCircle,Phone,MapPin,Plus,Loader2,Edit2,Mail} from 'lucide-react';
 import { useCart } from '@/contexts/cart-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +43,13 @@ interface CartItem {
   };
 }
 
+interface UserProfile {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+}
+
 declare global {
   interface Window {
     Razorpay: any;
@@ -63,9 +63,20 @@ export default function CheckoutPage() {
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  // Edit contact info states
+  const [editingContact, setEditingContact] = useState(false);
+  const [tempMobile, setTempMobile] = useState('');
+  const [tempEmail, setTempEmail] = useState('');
+  const [savingContact, setSavingContact] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+  const [emailError, setEmailError] = useState('');
   
   // New address form
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -102,12 +113,32 @@ export default function CheckoutPage() {
     };
   }, []);
 
-  // Load addresses
+  // Load user profile and addresses
   useEffect(() => {
     if (status === 'authenticated') {
+      loadUserProfile();
       loadAddresses();
     }
   }, [status]);
+
+  const loadUserProfile = async () => {
+    setLoadingProfile(true);
+    try {
+      const response = await fetch('/api/account/profile');
+      if (response.ok) {
+        const profile = await response.json();
+        setUserProfile(profile);
+        setMobileNumber(profile.phone || '');
+        setEmail(profile.email || '');
+        setTempMobile(profile.phone || '');
+        setTempEmail(profile.email || '');
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const loadAddresses = async () => {
     setLoadingAddresses(true);
@@ -140,6 +171,90 @@ export default function CheckoutPage() {
     } finally {
       setLoadingAddresses(false);
     }
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) {
+      setPhoneError('Phone number is required');
+      return false;
+    }
+
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    if (cleanPhone.length !== 10) {
+      setPhoneError('Phone number must be exactly 10 digits');
+      return false;
+    }
+
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      setPhoneError('Phone number must contain only digits');
+      return false;
+    }
+
+    setPhoneError('');
+    return true;
+  };
+
+  const validateEmail = (email: string): boolean => {
+    if (!email) {
+      setEmailError('Email is required');
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address');
+      return false;
+    }
+
+    setEmailError('');
+    return true;
+  };
+
+  const handleSaveContactInfo = async () => {
+    const isPhoneValid = validatePhone(tempMobile);
+    const isEmailValid = validateEmail(tempEmail);
+
+    if (!isPhoneValid || !isEmailValid) {
+      return;
+    }
+
+    setSavingContact(true);
+
+    try {
+      const response = await fetch('/api/account/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: tempMobile,
+          email: tempEmail,
+          name: userProfile?.name,
+        }),
+      });
+
+      if (response.ok) {
+        const updatedProfile = await response.json();
+        setUserProfile(updatedProfile);
+        setMobileNumber(tempMobile);
+        setEmail(tempEmail);
+        setEditingContact(false);
+        toast.success('Contact information updated successfully');
+      } else {
+        throw new Error('Failed to update contact information');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update contact information');
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  const handleCancelEditContact = () => {
+    setTempMobile(mobileNumber);
+    setTempEmail(email);
+    setEditingContact(false);
+    setPhoneError('');
+    setEmailError('');
   };
 
   const handleSaveAddress = async () => {
@@ -192,6 +307,11 @@ export default function CheckoutPage() {
 
     if (!mobileNumber || mobileNumber.length !== 10) {
       toast.error('Please enter a valid 10-digit mobile number');
+      return;
+    }
+
+    if (!email) {
+      toast.error('Please enter your email address');
       return;
     }
 
@@ -255,7 +375,7 @@ export default function CheckoutPage() {
         },
         prefill: {
           name: session?.user?.name || '',
-          email: session?.user?.email || '',
+          email: email || '',
           contact: mobileNumber || '',
         },
         theme: {
@@ -466,45 +586,119 @@ export default function CheckoutPage() {
 
             {/* Contact Information Section */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <Phone className="w-5 h-5" />
-                Contact Information
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">
-                    Mobile Number for Payment *
-                  </Label>
-                  <Input
-                    type="tel"
-                    placeholder="Enter 10-digit mobile number"
-                    value={mobileNumber}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, '');
-                      if (value.length <= 10) {
-                        setMobileNumber(value);
-                      }
-                    }}
-                    className="mt-1"
-                    maxLength={10}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This number will be used for payment verification and order updates
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Email</Label>
-                  <Input
-                    type="email"
-                    value={session.user?.email || ''}
-                    disabled
-                    className="mt-1 bg-gray-50"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Order confirmation will be sent to this email
-                  </p>
-                </div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Phone className="w-5 h-5" />
+                  Contact Information
+                </h2>
+                {!editingContact && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setEditingContact(true)}
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                )}
               </div>
+
+              {loadingProfile ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#C47456]" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {editingContact ? (
+                    <>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700">
+                          Mobile Number *
+                        </Label>
+                        <Input
+                          type="tel"
+                          placeholder="Enter 10-digit mobile number"
+                          value={tempMobile}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '');
+                            if (value.length <= 10) {
+                              setTempMobile(value);
+                              setPhoneError('');
+                            }
+                          }}
+                          className={`mt-1 ${phoneError ? 'border-red-500' : ''}`}
+                          maxLength={10}
+                        />
+                        {phoneError && (
+                          <p className="text-red-500 text-sm mt-1">{phoneError}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          This number will be used for payment verification and order updates
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Mail className="w-4 h-4" />
+                          Email *
+                        </Label>
+                        <Input
+                          type="email"
+                          placeholder="Enter your email"
+                          value={tempEmail}
+                          onChange={(e) => {
+                            setTempEmail(e.target.value);
+                            setEmailError('');
+                          }}
+                          className={`mt-1 ${emailError ? 'border-red-500' : ''}`}
+                        />
+                        {emailError && (
+                          <p className="text-red-500 text-sm mt-1">{emailError}</p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-1">
+                          Order confirmation will be sent to this email
+                        </p>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelEditContact}
+                          disabled={savingContact}
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSaveContactInfo}
+                          disabled={savingContact}
+                          className="flex-1 bg-[#C47456] hover:bg-[#B36647]"
+                        >
+                          {savingContact ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700">
+                          Mobile Number
+                        </Label>
+                        <div className="mt-1 p-3 bg-gray-50 rounded-lg border">
+                          <p className="font-medium">{mobileNumber || 'Not provided'}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                          <Mail className="w-4 h-4" />
+                          Email
+                        </Label>
+                        <div className="mt-1 p-3 bg-gray-50 rounded-lg border">
+                          <p className="font-medium">{email || 'Not provided'}</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Payment Method Section */}
@@ -612,7 +806,7 @@ export default function CheckoutPage() {
               <Button
                 className="w-full mt-6 bg-[#C47456] hover:bg-[#B36647] text-white py-6 text-lg font-semibold"
                 onClick={handlePayment}
-                disabled={processingPayment || !selectedAddress || !mobileNumber}
+                disabled={processingPayment || !selectedAddress || !mobileNumber || !email}
               >
                 {processingPayment ? (
                   <>
