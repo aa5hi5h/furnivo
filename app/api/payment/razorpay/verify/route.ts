@@ -112,6 +112,20 @@ export async function POST(req: NextRequest) {
 
     console.log('Order updated successfully');
 
+    // Update product stock for each item in the order
+    for (const item of updatedOrder.orderItems) {
+      await prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          stock: {
+            decrement: item.quantity,
+          },
+        },
+      });
+    }
+
+    console.log('Product stocks updated');
+
     // Clear cart
     await prisma.cartItem.deleteMany({
       where: { userId: user.id },
@@ -166,7 +180,7 @@ export async function POST(req: NextRequest) {
       // Send notification email to admin
       sendAdminOrderNotificationEmail({
         ...emailData,
-        customerPhone: order.user.phone  || undefined,
+        customerPhone: order.user.phone || undefined,
         paymentMethod: 'razorpay',
       })
         .then(() => console.log('✓ Admin notification email sent'))

@@ -492,6 +492,7 @@ export default function OutdoorPage() {
           onClose={() => setShowQuickView(false)}
           onAddToCart={handleAddToCart}
           onAddToWishlist={handleAddToWishlist}
+          wishlistItemIds = {wishlistItemIds}
         />
       )}
     </div>

@@ -6,11 +6,12 @@ import { FilterSidebar, type FilterState } from '@/components/filter-sidebar';
 import { QuickViewModal } from '@/components/quick-view-modal';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Eye, Heart, Shuffle } from 'lucide-react';
+import { Check, Eye, Heart, ShoppingCart, Shuffle } from 'lucide-react';
 import Link from 'next/link';
 import { useCart } from '@/contexts/cart-context';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
+
 
 interface Product {
   id: string;
@@ -61,7 +62,7 @@ export default function LivingRoomPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showQuickView, setShowQuickView] = useState(false);
   const [wishlistItemIds, setWishlistItemIds] = useState<Record<string, string>>({});
-  const { addToCart } = useCart();
+  const { addToCart, items: cartItems } = useCart();
   const { data: session } = useSession();
 
   useEffect(() => {
@@ -116,6 +117,8 @@ export default function LivingRoomPage() {
       setLoading(false);
     }
   };
+
+  
 
   const handleFilterChange = (filters: FilterState) => {
     let filtered = [...products];
@@ -204,6 +207,10 @@ export default function LivingRoomPage() {
   const openQuickView = (product: Product) => {
     setQuickViewProduct(product);
     setShowQuickView(true);
+  };
+
+  const isInCart = (productId: string) => {
+    return cartItems.some(item => item.productId === productId);
   };
 
   const handleAddToCart = (productId: string, color: string, quantity: number) => {
@@ -354,6 +361,7 @@ export default function LivingRoomPage() {
                     : 0;
 
                   const isWishlisted = !!wishlistItemIds[product.id];
+                  const isProductInCart = isInCart(product.id);
 
                   return (
                     <div
@@ -385,33 +393,48 @@ export default function LivingRoomPage() {
                           </div>
                         )}
 
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
-                          <button
-                            onClick={() => openQuickView(product)}
-                            className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
-                            title="Quick View"
-                            aria-label="Quick view"
-                          >
-                            <Eye size={20} />
-                          </button>
-                          <button
-                            onClick={() => handleAddToWishlist(product.id)}
-                            className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors ${
-                              isWishlisted ? 'text-red-500' : ''
+<div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+  {/* Quick View */}
+  <button
+    onClick={() => openQuickView(product)}
+    className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
+    title="Quick View"
+    aria-label="Quick view"
+  >
+    <Eye size={20} />
+  </button>
+
+  {/* Wishlist */}
+  <button
+    onClick={() => handleAddToWishlist(product.id)}
+    className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors ${
+      isWishlisted ? 'text-red-500' : ''
+    }`}
+    title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+    aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+  >
+    <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
+  </button>
+
+  {/* Add to Cart */}
+  <button
+                            onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
+                            disabled={product.stock === 0}
+                            className={`rounded-full p-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                              isProductInCart
+                                ? 'bg-green-50 text-green-600'
+                                : 'bg-white hover:bg-[#C47456] hover:text-white'
                             }`}
-                            title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
-                            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                            title={isProductInCart ? 'Already in Cart' : 'Add to Cart'}
+                            aria-label={isProductInCart ? 'Already in cart' : 'Add to cart'}
                           >
-                            <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
+                            {isProductInCart ? (
+                              <Check size={20} strokeWidth={3} />
+                            ) : (
+                              <ShoppingCart size={20} />
+                            )}
                           </button>
-                          <button
-                            className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
-                            title="Compare"
-                            aria-label="Compare"
-                          >
-                            <Shuffle size={20} />
-                          </button>
-                        </div>
+</div>
                       </div>
 
                       <div className="p-4 flex-1 flex flex-col">
@@ -508,12 +531,13 @@ export default function LivingRoomPage() {
         <QuickViewModal
           product={{
             ...quickViewProduct,
-            review_count: quickViewProduct.reviewCount
+            review_count: quickViewProduct.reviewCount,
           } as any}
           open={showQuickView}
           onClose={() => setShowQuickView(false)}
           onAddToCart={handleAddToCart}
           onAddToWishlist={handleAddToWishlist}
+          wishlistItemIds = {wishlistItemIds}
         />
       )}
     </div>

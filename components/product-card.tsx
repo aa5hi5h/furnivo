@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import {toast} from "sonner"
 
 interface Product {
   id: string;
@@ -37,7 +38,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [isCheckingWishlist, setIsCheckingWishlist] = useState(false);
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
   const { addToCart } = useCart();
-  const { toast } = useToast();
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -90,27 +90,22 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.stopPropagation();
     
     if (product.stock === 0) {
-      toast({
-        title: 'Out of stock',
+      toast.error('Out of stock',{
         description: 'This product is currently unavailable',
-        variant: 'error',
       });
       return;
     }
 
     if (status !== 'authenticated' || !session?.user?.id) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to add items to cart',
-        variant: 'error',
+    toast.error('Authentication required',{
+        description: 'Please sign in to add items to cart'
       });
       router.push('/auth');
       return;
     }
 
     await addToCart(product.id, 1, product.colors?.[0] || '');
-    toast({
-      title: 'Added to cart',
+    toast.success('Added to cart',{
       description: `${product.name} has been added to your cart`,
     });
   };
@@ -120,10 +115,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.stopPropagation();
     
     if (status !== 'authenticated' || !session?.user?.id) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please sign in to add items to your wishlist',
-        variant: 'error',
+      toast.error('Authentication required',{
+        description: 'Please sign in to add items to your wishlist'
       });
       router.push('/auth');
       return;
@@ -146,8 +139,7 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         setIsWishlisted(false);
         setWishlistItemId(null);
-        toast({
-          title: 'Removed from wishlist',
+        toast.success('Removed from wishlist',{
           description: 'Product removed from your wishlist',
         });
       } else {
@@ -169,17 +161,14 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         setIsWishlisted(true);
         setWishlistItemId(result.data.id);
-        toast({
-          title: 'Added to wishlist',
+        toast.success('Added to wishlist',{
           description: result.message || 'Product added to your wishlist',
         });
       }
     } catch (error: any) {
       console.error('Wishlist error:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update wishlist',
-        variant: 'error',
+      toast('Error',{
+        description: error.message || 'Failed to update wishlist'
       });
     } finally {
       setIsTogglingWishlist(false);

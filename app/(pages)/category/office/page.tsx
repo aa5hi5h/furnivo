@@ -492,6 +492,7 @@ export default function OfficePage() {
           onClose={() => setShowQuickView(false)}
           onAddToCart={handleAddToCart}
           onAddToWishlist={handleAddToWishlist}
+          wishlistItemIds = {wishlistItemIds}
         />
       )}
     </div>
