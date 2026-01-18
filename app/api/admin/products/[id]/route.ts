@@ -56,8 +56,9 @@ export async function PUT(
       price,
       originalPrice,
       stock,
-      images,
-      colors,
+      colorVariants, // NEW: Color variants with images
+      images, // LEGACY: Keep for backward compatibility
+      colors, // LEGACY: Keep for backward compatibility
       materials,
       featured,
     } = body;
@@ -85,8 +86,26 @@ export async function PUT(
       }
     }
 
-    // Validation
-    if (!images || images.length === 0) {
+    // NEW: Extract data from colorVariants OR use legacy format
+    let finalImages: string[] = [];
+    let finalColors: string[] = [];
+    let finalMainImage = '';
+
+    if (colorVariants && colorVariants.length > 0) {
+      // NEW FORMAT: Extract from color variants
+      colorVariants.forEach((variant: any) => {
+        finalColors.push(variant.color);
+        if (variant.images && variant.images.length > 0) {
+          finalImages.push(...variant.images);
+        }
+      });
+      finalMainImage = finalImages[0] || existingProduct.image;
+    } else if (images && images.length > 0) {
+      // LEGACY FORMAT: Use old images/colors arrays
+      finalImages = images;
+      finalColors = colors || [];
+      finalMainImage = images[0];
+    } else {
       return NextResponse.json(
         { error: 'At least one image is required' },
         { status: 400 }
@@ -103,9 +122,10 @@ export async function PUT(
         price: parseFloat(price),
         originalPrice: originalPrice ? parseFloat(originalPrice) : null,
         stock: parseInt(stock),
-        image: images[0],
-        images: images,
-        colors: colors || [],
+        image: finalMainImage,
+        images: finalImages,
+        colors: finalColors,
+        colorVariants: colorVariants || null, // NEW: Store as JSON
         materials: materials || null,
         featured: featured || false,
       },

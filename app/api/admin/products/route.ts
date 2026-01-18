@@ -48,8 +48,9 @@ export async function POST(req: NextRequest) {
       price,
       originalPrice,
       stock,
-      images,
-      colors,
+      colorVariants, // NEW: Color variants with images
+      images, // LEGACY: Keep for backward compatibility
+      colors, // LEGACY: Keep for backward compatibility
       materials,
       featured,
     } = body;
@@ -58,13 +59,6 @@ export async function POST(req: NextRequest) {
     if (!name || !slug || !category || price === undefined || stock === undefined) {
       return NextResponse.json(
         { error: 'Missing required fields: name, slug, category, price, and stock are required' },
-        { status: 400 }
-      );
-    }
-
-    if (!images || images.length === 0) {
-      return NextResponse.json(
-        { error: 'At least one image is required' },
         { status: 400 }
       );
     }
@@ -81,6 +75,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // NEW: Extract data from colorVariants OR use legacy format
+    let finalImages: string[] = [];
+    let finalColors: string[] = [];
+    let finalMainImage = '';
+
+    if (colorVariants && colorVariants.length > 0) {
+      // NEW FORMAT: Extract from color variants
+      colorVariants.forEach((variant: any) => {
+        finalColors.push(variant.color);
+        if (variant.images && variant.images.length > 0) {
+          finalImages.push(...variant.images);
+        }
+      });
+      finalMainImage = finalImages[0] || '';
+    } else if (images && images.length > 0) {
+      // LEGACY FORMAT: Use old images/colors arrays
+      finalImages = images;
+      finalColors = colors || [];
+      finalMainImage = images[0];
+    } else {
+      return NextResponse.json(
+        { error: 'At least one image is required (either in colorVariants or images array)' },
+        { status: 400 }
+      );
+    }
+
     const product = await prisma.product.create({
       data: {
         name,
@@ -90,9 +110,10 @@ export async function POST(req: NextRequest) {
         price: parseFloat(price),
         originalPrice: originalPrice ? parseFloat(originalPrice) : null,
         stock: parseInt(stock),
-        image: images[0],
-        images: images,
-        colors: colors || [],
+        image: finalMainImage,
+        images: finalImages,
+        colors: finalColors,
+        colorVariants: colorVariants || null, // NEW: Store as JSON
         materials: materials || null,
         featured: featured || false,
       },

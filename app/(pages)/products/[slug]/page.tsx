@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Star, Heart, Truck, ChevronRight } from 'lucide-react';
+import { Star, Heart, Truck, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Accordion,
   AccordionContent,
@@ -14,11 +13,17 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { useCart } from '@/contexts/cart-context';
-import { useToast } from '@/hooks/use-toast';
 import { useSession } from 'next-auth/react';
 import ReviewSection from '@/components/reviews/ReviewSection';
 import RelatedProducts from '@/components/products/RelatedProduct';
-import {toast } from "sonner"
+import { toast } from 'sonner';
+
+type ColorVariant = {
+  color: string;
+  colorCode?: string;
+  images: string[];
+};
+
 type Product = {
   id: string;
   name: string;
@@ -31,6 +36,7 @@ type Product = {
   image: string;
   images: string[];
   colors: string[];
+  colorVariants?: ColorVariant[] | string;
   materials: string | null;
   featured: boolean;
   rating: number | null;
@@ -52,12 +58,36 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedColorIndex, setSelectedColorIndex] = useState(0);
+  const [thumbnailStartIndex, setThumbnailStartIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [wishlistItemId, setWishlistItemId] = useState<string | null>(null);
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+
+  // Parse color variants from product
+  const colorVariants: ColorVariant[] = product?.colorVariants
+    ? (Array.isArray(product.colorVariants)
+        ? product.colorVariants
+        : JSON.parse(product.colorVariants as string))
+    : [];
+
+  // Determine if product uses color variants or simple mode
+  const hasColorVariants = colorVariants.length > 0;
+  
+  // Get current images based on mode
+  const currentImages = hasColorVariants
+    ? colorVariants[selectedColorIndex]?.images || []
+    : product?.images || [];
+
+  // Get current color name
+  const currentColorName = hasColorVariants
+    ? colorVariants[selectedColorIndex]?.color
+    : '';
+
+  const THUMBNAILS_PER_VIEW = 4;
+  const maxThumbnailIndex = Math.max(0, currentImages.length - THUMBNAILS_PER_VIEW);
 
   useEffect(() => {
     loadProduct();
@@ -76,7 +106,7 @@ export default function ProductDetailPage() {
       const response = await fetch(`/api/wishlist?userId=${session.user.id}`, {
         credentials: 'include',
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
@@ -99,7 +129,9 @@ export default function ProductDetailPage() {
 
   const toggleWishlist = async () => {
     if (!session?.user?.id) {
-      toast.error('Authentication required', {description: 'Please sign in to add items to your wishlist'});
+      toast.error('Authentication required', {
+        description: 'Please sign in to add items to your wishlist',
+      });
       return;
     }
 
@@ -121,7 +153,9 @@ export default function ProductDetailPage() {
 
         setIsWishlisted(false);
         setWishlistItemId(null);
-        toast.success('Removed from wishlist', {description: 'Product removed from your wishlist'});
+        toast.success('Removed from wishlist', {
+          description: 'Product removed from your wishlist',
+        });
       } else {
         const response = await fetch('/api/wishlist', {
           method: 'POST',
@@ -140,11 +174,15 @@ export default function ProductDetailPage() {
 
         setIsWishlisted(true);
         setWishlistItemId(result.data.id);
-        toast.success('Added to wishlist', {description: result.message || 'Product added to your wishlist'});
+        toast.success('Added to wishlist', {
+          description: result.message || 'Product added to your wishlist',
+        });
       }
     } catch (error: any) {
       console.error('Wishlist error:', error);
-      toast.error('Error',{description: error.message || 'Failed to update wishlist',});
+      toast.error('Error', {
+        description: error.message || 'Failed to update wishlist',
+      });
     } finally {
       setIsTogglingWishlist(false);
     }
@@ -158,9 +196,6 @@ export default function ProductDetailPage() {
 
       if (result.success && result.data) {
         setProduct(result.data);
-        if (result.data.colors && result.data.colors.length > 0) {
-          setSelectedColor(result.data.colors[0]);
-        }
       }
     } catch (error) {
       console.error('Error loading product:', error);
@@ -169,10 +204,26 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleColorChange = (index: number) => {
+    setSelectedColorIndex(index);
+    setSelectedImage(0); // Reset to first image of new color
+    setThumbnailStartIndex(0); // Reset thumbnail scroll
+  };
+
+  const handlePrevThumbnails = () => {
+    setThumbnailStartIndex(Math.max(0, thumbnailStartIndex - 1));
+  };
+
+  const handleNextThumbnails = () => {
+    setThumbnailStartIndex(Math.min(maxThumbnailIndex, thumbnailStartIndex + 1));
+  };
+
   const handleAddToCart = () => {
     if (product) {
-      addToCart(product.id, quantity, selectedColor);
-      toast.success('Added to cart', {description: `${product.name} has been added to your cart`});
+      addToCart(product.id, quantity, currentColorName);
+      toast.success('Added to cart', {
+        description: `${product.name} has been added to your cart`,
+      });
     }
   };
 
@@ -204,16 +255,28 @@ export default function ProductDetailPage() {
   const rating = product.rating || 0;
   const reviewCount = product.reviewCount || 0;
 
+  const visibleThumbnails = currentImages.slice(
+    thumbnailStartIndex,
+    thumbnailStartIndex + THUMBNAILS_PER_VIEW
+  );
+
   return (
     <div className="bg-white">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-600 mb-8">
-          <Link href="/" className="hover:text-[#C47456]">Home</Link>
+          <Link href="/" className="hover:text-[#C47456]">
+            Home
+          </Link>
           <ChevronRight className="w-4 h-4" />
-          <Link href="/products" className="hover:text-[#C47456]">Products</Link>
+          <Link href="/products" className="hover:text-[#C47456]">
+            Products
+          </Link>
           <ChevronRight className="w-4 h-4" />
-          <Link href={`/products?category=${encodeURIComponent(product.category)}`} className="hover:text-[#C47456]">
+          <Link
+            href={`/products?category=${encodeURIComponent(product.category)}`}
+            className="hover:text-[#C47456]"
+          >
             {product.category}
           </Link>
           <ChevronRight className="w-4 h-4" />
@@ -224,35 +287,93 @@ export default function ProductDetailPage() {
         <div className="grid lg:grid-cols-2 gap-12 mb-16">
           {/* Image Gallery */}
           <div>
+            {/* Main Image */}
             <div className="relative aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-4">
-              {product.images[selectedImage] && (
+              {currentImages[selectedImage] && (
                 <Image
-                  src={product.images[selectedImage]}
-                  alt={product.name}
+                  src={currentImages[selectedImage]}
+                  alt={`${product.name} - ${currentColorName}`}
                   fill
                   className="object-cover"
                 />
               )}
             </div>
-            <div className="grid grid-cols-4 gap-4">
-              {product.images.map((image, index) => (
+
+            {/* Thumbnail Gallery with Navigation */}
+            <div className="relative flex items-center gap-2">
+              {/* Left Arrow */}
+              {currentImages.length > THUMBNAILS_PER_VIEW && (
                 <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden ${
-                    selectedImage === index ? 'ring-2 ring-[#C47456]' : ''
-                  }`}
+                  onClick={handlePrevThumbnails}
+                  disabled={thumbnailStartIndex === 0}
+                  className="absolute left-0 z-10 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all"
                 >
-                  <Image src={image} alt={`${product.name} ${index + 1}`} fill className="object-cover" />
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
-              ))}
+              )}
+
+              {/* Thumbnails */}
+              <div className="flex-1 overflow-hidden">
+                <div className="grid grid-cols-4 gap-4">
+                  {visibleThumbnails.map((image, index) => {
+                    const actualIndex = thumbnailStartIndex + index;
+                    return (
+                      <button
+                        key={actualIndex}
+                        onClick={() => setSelectedImage(actualIndex)}
+                        className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden transition-all ${
+                          selectedImage === actualIndex
+                            ? 'ring-2 ring-[#C47456]'
+                            : 'hover:ring-2 hover:ring-gray-300'
+                        }`}
+                      >
+                        <Image
+                          src={image}
+                          alt={`${product.name} ${actualIndex + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Arrow */}
+              {currentImages.length > THUMBNAILS_PER_VIEW && (
+                <button
+                  onClick={handleNextThumbnails}
+                  disabled={thumbnailStartIndex >= maxThumbnailIndex}
+                  className="absolute right-0 z-10 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              )}
             </div>
+
+            {/* Thumbnail indicator */}
+            {currentImages.length > THUMBNAILS_PER_VIEW && (
+              <div className="flex justify-center gap-1 mt-3">
+                {Array.from({ length: Math.ceil(currentImages.length / THUMBNAILS_PER_VIEW) }).map(
+                  (_, i) => (
+                    <div
+                      key={i}
+                      className={`h-1 rounded-full transition-all ${
+                        Math.floor(thumbnailStartIndex / THUMBNAILS_PER_VIEW) === i
+                          ? 'w-6 bg-[#C47456]'
+                          : 'w-2 bg-gray-300'
+                      }`}
+                    />
+                  )
+                )}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
           <div>
             <h1 className="font-serif text-4xl font-bold mb-4">{product.name}</h1>
-            
+
             {/* Rating */}
             {rating > 0 && (
               <div className="flex items-center gap-4 mb-6">
@@ -261,7 +382,9 @@ export default function ProductDetailPage() {
                     <Star
                       key={i}
                       className={`w-5 h-5 ${
-                        i < Math.round(rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                        i < Math.round(rating)
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-gray-300'
                       }`}
                     />
                   ))}
@@ -290,23 +413,30 @@ export default function ProductDetailPage() {
             <p className="text-gray-600 mb-8 leading-relaxed">{product.description}</p>
 
             {/* Color Selection */}
-            {product.colors && product.colors.length > 0 && (
+            {hasColorVariants && (
               <div className="mb-6">
                 <label className="block text-sm font-semibold mb-3">
-                  Color {selectedColor && `- ${selectedColor}`}
+                  Color {currentColorName && `- ${currentColorName}`}
                 </label>
-                <div className="flex gap-3">
-                  {product.colors.map((color) => (
+                <div className="flex flex-wrap gap-3">
+                  {colorVariants.map((variant, index) => (
                     <button
-                      key={color}
-                      onClick={() => setSelectedColor(color)}
-                      className={`px-4 py-2 rounded-lg border-2 transition-all capitalize ${
-                        selectedColor === color
+                      key={index}
+                      onClick={() => handleColorChange(index)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                        selectedColorIndex === index
                           ? 'border-[#C47456] bg-[#C47456]/10'
                           : 'border-gray-300 hover:border-gray-400'
                       }`}
                     >
-                      {color}
+                      {variant.colorCode && (
+                        <div
+                          className="w-5 h-5 rounded-full border-2 border-gray-300"
+                          style={{ backgroundColor: variant.colorCode }}
+                        />
+                      )}
+                      <span className="capitalize">{variant.color}</span>
+                      <span className="text-xs text-gray-500">({variant.images.length})</span>
                     </button>
                   ))}
                 </div>
@@ -349,9 +479,9 @@ export default function ProductDetailPage() {
               >
                 {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
+              <Button
+                size="lg"
+                variant="outline"
                 className="py-6"
                 onClick={toggleWishlist}
                 disabled={isTogglingWishlist}
@@ -359,7 +489,9 @@ export default function ProductDetailPage() {
                 {isTogglingWishlist ? (
                   <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`} />
+                  <Heart
+                    className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`}
+                  />
                 )}
               </Button>
             </div>
@@ -373,7 +505,10 @@ export default function ProductDetailPage() {
             </div>
 
             {/* Design Consultation Link */}
-            <Link href="/design-services" className="text-[#C47456] hover:underline font-medium">
+            <Link
+              href="/design-services"
+              className="text-[#C47456] hover:underline font-medium"
+            >
               Book Design Consultation →
             </Link>
 
@@ -383,11 +518,24 @@ export default function ProductDetailPage() {
                 <AccordionTrigger>Product Details</AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-2 text-sm text-gray-600">
-                    <p><strong>Materials:</strong> {product.materials || 'Premium quality materials'}</p>
-                    <p><strong>Category:</strong> {product.category}</p>
-                    <p><strong>Stock:</strong> {product.stock} available</p>
+                    <p>
+                      <strong>Materials:</strong> {product.materials || 'Premium quality materials'}
+                    </p>
+                    <p>
+                      <strong>Category:</strong> {product.category}
+                    </p>
+                    <p>
+                      <strong>Stock:</strong> {product.stock} available
+                    </p>
                     {product.collection && (
-                      <p><strong>Collection:</strong> {product.collection.name}</p>
+                      <p>
+                        <strong>Collection:</strong> {product.collection.name}
+                      </p>
+                    )}
+                    {hasColorVariants && (
+                      <p>
+                        <strong>Available Colors:</strong> {colorVariants.length}
+                      </p>
                     )}
                   </div>
                 </AccordionContent>
@@ -404,7 +552,8 @@ export default function ProductDetailPage() {
                 <AccordionTrigger>Materials & Care</AccordionTrigger>
                 <AccordionContent>
                   <p className="text-sm text-gray-600">
-                    {product.materials || 'Premium quality materials'}. Clean with a soft, damp cloth. Avoid harsh chemicals.
+                    {product.materials || 'Premium quality materials'}. Clean with a soft, damp
+                    cloth. Avoid harsh chemicals.
                   </p>
                 </AccordionContent>
               </AccordionItem>
@@ -421,10 +570,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Reviews Section */}
-        <ReviewSection 
-          productId={product.id} 
-          userId={session?.user?.id}
-        />
+        <ReviewSection productId={product.id} userId={session?.user?.id} />
 
         {/* Related Products */}
         <RelatedProducts productId={product.id} />

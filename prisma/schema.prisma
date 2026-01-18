@@ -83,14 +83,20 @@ model Product {
   name          String
   slug          String   @unique
   description   String?
-  category      String   // Keep for backward compatibility
-  categoryId    String?  // NEW: Reference to Category model
+  category      String
+  categoryId    String?
   price         Float
   originalPrice Float?
   stock         Int      @default(0)
+  
+  // KEEP for backward compatibility
   image         String
   images        String[]
   colors        String[]
+  
+  // NEW: Color variants with images
+  colorVariants Json?    // Stores: [{ color: "Red", colorCode: "#DC2626", images: ["url1", "url2"] }]
+  
   materials     String?
   featured      Boolean  @default(false)
   

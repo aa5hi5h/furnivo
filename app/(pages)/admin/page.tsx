@@ -47,6 +47,8 @@ import { toast } from 'sonner';
 import AdminAnalytics from '@/components/admin-analytics-pannel';
 import AdminSettingsPanel from '@/components/admin-setting-pannel';
 import AdminAuthModal from '@/components/admin-auth-modal';
+import ColorVariantManager from '@/components/color-varient-manager';
+import ImageUploader from '@/components/image-uploader-componet';
 
 interface Product {
   id: string;
@@ -57,8 +59,10 @@ interface Product {
   price: number;
   originalPrice: number | null;
   stock: number;
-  images: string[];
-  colors: string[];
+  image: string; // Keep for backward compatibility
+  images: string[]; // Main images (simple mode)
+  colors: string[]; // Keep for backward compatibility
+  colorVariants?: ColorVariant[] | string; // Color variant mode
   materials: string | null;
   featured: boolean;
   createdAt: string;
@@ -103,6 +107,12 @@ interface Customer {
   totalSpent: number;
 }
 
+interface ColorVariant {
+  color: string;
+  colorCode?: string;
+  images: string[];
+}
+
 const initialProductState = {
   name: '',
   slug: '',
@@ -111,8 +121,8 @@ const initialProductState = {
   price: 0,
   originalPrice: 0,
   stock: 0,
-  images: [] as string[],
-  colors: [] as string[],
+  images: [] as string[], // Simple mode images
+  colorVariants: [] as ColorVariant[], // Variant mode
   materials: '',
   featured: false,
 };
@@ -133,6 +143,7 @@ const initialCategoryState = {
   description: '',
 };
 
+
 const ProductForm = ({
   product,
   setProduct,
@@ -145,157 +156,221 @@ const ProductForm = ({
   onSubmit: () => void;
   submitLabel: string;
   categories: Category[];
-}) => (
-  <div className="space-y-4">
-    <div>
-      <Label>Product Name</Label>
-      <Input
-        value={product.name}
-        onChange={(e) => setProduct({ ...product, name: e.target.value })}
-      />
-    </div>
-    <div>
-      <Label>Slug</Label>
-      <Input
-        value={product.slug}
-        onChange={(e) => setProduct({ ...product, slug: e.target.value })}
-        placeholder="product-name-slug"
-      />
-    </div>
-    <div>
-      <Label>Description</Label>
-      <Textarea
-        value={product.description}
-        onChange={(e) => setProduct({ ...product, description: e.target.value })}
-        rows={3}
-      />
-    </div>
-    <div className="grid grid-cols-2 gap-4">
+}) => {
+  const [imageMode, setImageMode] = useState<'simple' | 'variants'>(
+    product.colorVariants.length > 0 ? 'variants' : 'simple'
+  );
+
+  const handleModeChange = (mode: 'simple' | 'variants') => {
+    if (mode === 'simple' && product.colorVariants.length > 0) {
+      if (!confirm('Switching to simple mode will remove all color variants. Continue?')) {
+        return;
+      }
+      setProduct({ ...product, colorVariants: [] });
+    } else if (mode === 'variants' && product.images.length > 0) {
+      if (!confirm('Switching to color variants mode will move your images to the first variant. Continue?')) {
+        return;
+      }
+      // Convert simple images to first color variant
+      setProduct({
+        ...product,
+        colorVariants: [{
+          color: 'Default',
+          colorCode: '#000000',
+          images: product.images
+        }],
+        images: []
+      });
+    }
+    setImageMode(mode);
+  };
+
+  return (
+    <div className="space-y-4">
       <div>
-      <Label>Category</Label>
-      <select
-          className="w-full border rounded-md px-3 py-2"
-          value={product.category}
-          onChange={(e) => setProduct({ ...product, category: e.target.value })}
-        >
-          {categories.length > 0 && (
-            <>
-              <optgroup label="Custom Categories">
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Default Categories">
+        <Label>Product Name</Label>
+        <Input
+          value={product.name}
+          onChange={(e) => setProduct({ ...product, name: e.target.value })}
+        />
+      </div>
+      <div>
+        <Label>Slug</Label>
+        <Input
+          value={product.slug}
+          onChange={(e) => setProduct({ ...product, slug: e.target.value })}
+          placeholder="product-name-slug"
+        />
+      </div>
+      <div>
+        <Label>Description</Label>
+        <Textarea
+          value={product.description}
+          onChange={(e) => setProduct({ ...product, description: e.target.value })}
+          rows={3}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Category</Label>
+          <select
+            className="w-full border rounded-md px-3 py-2"
+            value={product.category}
+            onChange={(e) => setProduct({ ...product, category: e.target.value })}
+          >
+            {categories.length > 0 && (
+              <>
+                <optgroup label="Custom Categories">
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Default Categories">
+                  <option>Living Room</option>
+                  <option>Bedroom</option>
+                  <option>Dining</option>
+                  <option>Office</option>
+                  <option>Outdoor</option>
+                </optgroup>
+              </>
+            )}
+            {categories.length === 0 && (
+              <>
                 <option>Living Room</option>
                 <option>Bedroom</option>
                 <option>Dining</option>
                 <option>Office</option>
                 <option>Outdoor</option>
-              </optgroup>
-            </>
-          )}
-          {categories.length === 0 && (
-            <>
-              <option>Living Room</option>
-              <option>Bedroom</option>
-              <option>Dining</option>
-              <option>Office</option>
-              <option>Outdoor</option>
-            </>
-          )}
-        </select>
+              </>
+            )}
+          </select>
+        </div>
+        <div>
+          <Label>Materials</Label>
+          <Input
+            value={product.materials}
+            onChange={(e) => setProduct({ ...product, materials: e.target.value })}
+          />
+        </div>
       </div>
-      <div>
-        <Label>Materials</Label>
-        <Input
-          value={product.materials}
-          onChange={(e) => setProduct({ ...product, materials: e.target.value })}
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <Label>Price</Label>
+          <Input
+            type="number"
+            value={product.price}
+            onChange={(e) =>
+              setProduct({ ...product, price: parseFloat(e.target.value) || 0 })
+            }
+          />
+        </div>
+        <div>
+          <Label>Original Price</Label>
+          <Input
+            type="number"
+            value={product.originalPrice}
+            onChange={(e) =>
+              setProduct({
+                ...product,
+                originalPrice: parseFloat(e.target.value) || 0,
+              })
+            }
+          />
+        </div>
+        <div>
+          <Label>Stock</Label>
+          <Input
+            type="number"
+            value={product.stock}
+            onChange={(e) =>
+              setProduct({ ...product, stock: parseInt(e.target.value) || 0 })
+            }
+          />
+        </div>
+      </div>
+
+      {/* NEW: Image Mode Toggle */}
+      <div className="border-t pt-4 mt-4">
+        <Label className="text-base font-semibold mb-3 block">Product Images</Label>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <button
+            type="button"
+            onClick={() => handleModeChange('simple')}
+            className={`p-3 rounded-lg border-2 transition-all text-left ${
+              imageMode === 'simple'
+                ? 'border-[#C47456] bg-[#C47456]/5'
+                : 'border-gray-300 hover:border-gray-400'
+            }`}
+          >
+            <div className="font-semibold text-sm mb-1">📸 Simple Mode</div>
+            <div className="text-xs text-gray-600">
+              Multiple images, no color options
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleModeChange('variants')}
+            className={`p-3 rounded-lg border-2 transition-all text-left ${
+              imageMode === 'variants'
+                ? 'border-[#C47456] bg-[#C47456]/5'
+                : 'border-gray-300 hover:border-gray-400'
+            }`}
+          >
+            <div className="font-semibold text-sm mb-1">🎨 Color Variants</div>
+            <div className="text-xs text-gray-600">
+              Different images per color
+            </div>
+          </button>
+        </div>
+
+        {/* Simple Image Upload */}
+        {imageMode === 'simple' && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-600 mb-3">
+              Upload product images. First image = main thumbnail.
+            </p>
+            <ImageUploader
+              images={product.images}
+              onImagesChange={(images) => setProduct({ ...product, images })}
+              maxImages={10}
+            />
+          </div>
+        )}
+
+        {/* Color Variant Manager */}
+        {imageMode === 'variants' && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-600 mb-3">
+              Add colors with specific images for each.
+            </p>
+            <ColorVariantManager
+              variants={product.colorVariants}
+              onVariantsChange={(variants) =>
+                setProduct({ ...product, colorVariants: variants })
+              }
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="featured"
+          checked={product.featured}
+          onChange={(e) => setProduct({ ...product, featured: e.target.checked })}
         />
+        <Label htmlFor="featured">Featured Product</Label>
       </div>
+      <Button onClick={onSubmit} className="w-full bg-[#2C2C2C]">
+        {submitLabel}
+      </Button>
     </div>
-    <div className="grid grid-cols-3 gap-4">
-      <div>
-        <Label>Price</Label>
-        <Input
-          type="number"
-          value={product.price}
-          onChange={(e) =>
-            setProduct({ ...product, price: parseFloat(e.target.value) || 0 })
-          }
-        />
-      </div>
-      <div>
-        <Label>Original Price</Label>
-        <Input
-          type="number"
-          value={product.originalPrice}
-          onChange={(e) =>
-            setProduct({
-              ...product,
-              originalPrice: parseFloat(e.target.value) || 0,
-            })
-          }
-        />
-      </div>
-      <div>
-        <Label>Stock</Label>
-        <Input
-          type="number"
-          value={product.stock}
-          onChange={(e) =>
-            setProduct({ ...product, stock: parseInt(e.target.value) || 0 })
-          }
-        />
-      </div>
-    </div>
-    <div>
-      <Label>Image URLs (comma-separated)</Label>
-      <Input
-        placeholder="https://example.com/image.jpg, https://example.com/image2.jpg"
-        value={product.images.join(', ')}
-        onChange={(e) =>
-          setProduct({
-            ...product,
-            images: e.target.value
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean),
-          })
-        }
-      />
-    </div>
-    <div>
-      <Label>Colors (comma-separated)</Label>
-      <Input
-        placeholder="beige, grey, brown"
-        value={product.colors.join(', ')}
-        onChange={(e) =>
-          setProduct({
-            ...product,
-            colors: e.target.value
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean),
-          })
-        }
-      />
-    </div>
-    <div className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        id="featured"
-        checked={product.featured}
-        onChange={(e) => setProduct({ ...product, featured: e.target.checked })}
-      />
-      <Label htmlFor="featured">Featured Product</Label>
-    </div>
-    <Button onClick={onSubmit} className="w-full bg-[#2C2C2C]">
-      {submitLabel}
-    </Button>
-  </div>
-);
+  );
+};
 
 const CategoryForm = ({
   category,
@@ -544,6 +619,33 @@ export default function AdminDashboard() {
   };
 
   const handleEditClick = (product: Product) => {
+    let colorVariants: ColorVariant[] = [];
+    let images: string[] = [];
+    
+    // Check if product has color variants (new format)
+    if (product.colorVariants) {
+      try {
+        colorVariants = Array.isArray(product.colorVariants) 
+          ? product.colorVariants 
+          : JSON.parse(product.colorVariants as any);
+      } catch (e) {
+        colorVariants = [];
+      }
+    } 
+    
+    // Fallback: If no colorVariants but has images, use simple mode
+    if (colorVariants.length === 0 && product.images && product.images.length > 0) {
+      images = product.images;
+    }
+    
+    // Another fallback: Convert old colors format to colorVariants if needed
+    if (colorVariants.length === 0 && images.length === 0 && product.colors && product.colors.length > 0) {
+      colorVariants = product.colors.map((color, index) => ({
+        color,
+        images: product.images ? [product.images[index] || ''] : ['']
+      }));
+    }
+  
     setEditingProductId(product.id);
     setEditProduct({
       name: product.name,
@@ -553,8 +655,8 @@ export default function AdminDashboard() {
       price: product.price,
       originalPrice: product.originalPrice || 0,
       stock: product.stock,
-      images: product.images,
-      colors: product.colors,
+      images: images, // Simple mode images
+      colorVariants: colorVariants, // Variant mode
       materials: product.materials || '',
       featured: product.featured,
     });
@@ -1029,18 +1131,28 @@ export default function AdminDashboard() {
                       {filteredProducts.map((product) => (
                         <TableRow key={product.id}>
                           <TableCell>
-                            <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-                              {product.images[0] && (
-                                <Image
-                                  src={product.images[0]}
-                                  alt={product.name}
-                                  width={64}
-                                  height={64}
-                                  className="w-full h-full object-cover"
-                                />
-                              )}
-                            </div>
-                          </TableCell>
+  <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+    {(() => {
+      let firstImage = product.image; 
+      
+      if (product.colorVariants && Array.isArray(product.colorVariants) && product.colorVariants.length > 0) {
+        firstImage = product.colorVariants[0]?.images?.[0] || firstImage;
+      } else if (product.images && product.images.length > 0) {
+        firstImage = product.images[0];
+      }
+      
+      return firstImage ? (
+        <Image
+          src={firstImage}
+          alt={product.name}
+          width={64}
+          height={64}
+          className="w-full h-full object-cover"
+        />
+      ) : null;
+    })()}
+  </div>
+</TableCell>
                           <TableCell className="font-semibold">{product.name}</TableCell>
                           <TableCell>{product.category}</TableCell>
                           <TableCell>₹{product.price.toLocaleString()}</TableCell>
