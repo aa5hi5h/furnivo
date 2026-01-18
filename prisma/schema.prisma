@@ -64,12 +64,27 @@ model User {
   sessions      Session[]
 }
 
+// NEW: Category Model
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  products    Product[]
+  
+  @@index([slug])
+}
+
 model Product {
   id            String   @id @default(cuid())
   name          String
   slug          String   @unique
   description   String?
-  category      String
+  category      String   // Keep for backward compatibility
+  categoryId    String?  // NEW: Reference to Category model
   price         Float
   originalPrice Float?
   stock         Int      @default(0)
@@ -87,29 +102,30 @@ model Product {
   
   collectionId  String?
   collection    Collection? @relation(fields: [collectionId], references: [id])
+  categoryRef   Category?   @relation(fields: [categoryId], references: [id])
   
   orderItems    OrderItem[]
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
   reviews       Review[]
+  
+  @@index([categoryId])
 }
 
 model Review {
   id        String   @id @default(cuid())
-  rating    Int      // 1-5 stars (only for top-level reviews)
-  comment   String?  // Optional in DB, but filtered in API - comments without body won't be shown
+  rating    Int
+  comment   String?
   userName  String
   userEmail String?
-  verified  Boolean  @default(false) // Only true if user has purchased this product
+  verified  Boolean  @default(false)
   productId String
   userId    String?
   
-  // NEW: Nested comment fields
-  parentId  String?  // ID of the parent review/comment
-  depth     Int      @default(0) // 0 = top-level, 1+ = nested replies
+  parentId  String?
+  depth     Int      @default(0)
   
-  // NEW: Vote tracking
-  voteCount Int      @default(0) // Net votes (upvotes - downvotes)
+  voteCount Int      @default(0)
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -117,31 +133,28 @@ model Review {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   
-  // Self-referential relation for nested comments
   parent    Review?  @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Review[] @relation("ReviewReplies")
   
-  // Relation to votes
   votes     ReviewVote[]
   
   @@index([productId])
   @@index([rating])
   @@index([parentId])
-  @@index([voteCount]) // For sorting by popularity
+  @@index([voteCount])
 }
 
-// NEW: Vote tracking model
 model ReviewVote {
   id        String   @id @default(cuid())
   reviewId  String
   userId    String
-  voteType  Int      // 1 for upvote, -1 for downvote
+  voteType  Int
   createdAt DateTime @default(now())
   
   review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  @@unique([reviewId, userId]) // One vote per user per review
+  @@unique([reviewId, userId])
   @@index([reviewId])
   @@index([userId])
 }

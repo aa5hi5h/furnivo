@@ -117,16 +117,34 @@ const initialProductState = {
   featured: false,
 };
 
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  createdAt: string;
+  _count?: {
+    products: number;
+  };
+}
+
+const initialCategoryState = {
+  name: '',
+  description: '',
+};
+
 const ProductForm = ({
   product,
   setProduct,
   onSubmit,
   submitLabel,
+  categories,
 }: {
   product: typeof initialProductState;
   setProduct: React.Dispatch<React.SetStateAction<typeof initialProductState>>;
   onSubmit: () => void;
   submitLabel: string;
+  categories: Category[];
 }) => (
   <div className="space-y-4">
     <div>
@@ -154,17 +172,39 @@ const ProductForm = ({
     </div>
     <div className="grid grid-cols-2 gap-4">
       <div>
-        <Label>Category</Label>
-        <select
+      <Label>Category</Label>
+      <select
           className="w-full border rounded-md px-3 py-2"
           value={product.category}
           onChange={(e) => setProduct({ ...product, category: e.target.value })}
         >
-          <option>Living Room</option>
-          <option>Bedroom</option>
-          <option>Dining</option>
-          <option>Office</option>
-          <option>Outdoor</option>
+          {categories.length > 0 && (
+            <>
+              <optgroup label="Custom Categories">
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Default Categories">
+                <option>Living Room</option>
+                <option>Bedroom</option>
+                <option>Dining</option>
+                <option>Office</option>
+                <option>Outdoor</option>
+              </optgroup>
+            </>
+          )}
+          {categories.length === 0 && (
+            <>
+              <option>Living Room</option>
+              <option>Bedroom</option>
+              <option>Dining</option>
+              <option>Office</option>
+              <option>Outdoor</option>
+            </>
+          )}
         </select>
       </div>
       <div>
@@ -257,6 +297,41 @@ const ProductForm = ({
   </div>
 );
 
+const CategoryForm = ({
+  category,
+  setCategory,
+  onSubmit,
+  submitLabel,
+}: {
+  category: typeof initialCategoryState;
+  setCategory: React.Dispatch<React.SetStateAction<typeof initialCategoryState>>;
+  onSubmit: () => void;
+  submitLabel: string;
+}) => (
+  <div className="space-y-4">
+    <div>
+      <Label>Category Name *</Label>
+      <Input
+        value={category.name}
+        onChange={(e) => setCategory({ ...category, name: e.target.value })}
+        placeholder="e.g., Living Room, Bedroom, Office"
+      />
+    </div>
+    <div>
+      <Label>Description (Optional)</Label>
+      <Textarea
+        value={category.description}
+        onChange={(e) => setCategory({ ...category, description: e.target.value })}
+        rows={3}
+        placeholder="Brief description of this category"
+      />
+    </div>
+    <Button onClick={onSubmit} className="w-full bg-[#2C2C2C]">
+      {submitLabel}
+    </Button>
+  </div>
+);
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -265,17 +340,23 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [bookings, setBookings] = useState<DesignBooking[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [isEditCategoryOpen, setIsEditCategoryOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [viewOrderDetails, setViewOrderDetails] = useState<Order | null>(null);
   const [viewBookingDetails, setViewBookingDetails] = useState<DesignBooking | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
   const [newProduct, setNewProduct] = useState(initialProductState);
   const [editProduct, setEditProduct] = useState(initialProductState);
+  const [newCategory, setNewCategory] = useState(initialCategoryState);
+  const [editCategory, setEditCategory] = useState(initialCategoryState);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -285,10 +366,23 @@ export default function AdminDashboard() {
       loadOrders();
       loadBookings();
       loadCustomers();
+      loadCategories();
     } else if (status === 'authenticated' && !isAdminAuthenticated) {
       setLoading(false); 
     }
   }, [status, isAdminAuthenticated]);
+
+  const loadCategories = async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -337,6 +431,93 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error('Error loading customers:', error);
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategory.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCategory),
+      });
+
+      if (res.ok) {
+        toast.success('Category created successfully');
+        setIsAddCategoryOpen(false);
+        loadCategories();
+        setNewCategory(initialCategoryState);
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to create category');
+      }
+    } catch (error) {
+      console.error('Error creating category:', error);
+      toast.error('Error creating category');
+    }
+  };
+
+  const handleEditCategoryClick = (category: Category) => {
+    setEditingCategoryId(category.id);
+    setEditCategory({
+      name: category.name,
+      description: category.description || '',
+    });
+    setIsEditCategoryOpen(true);
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategoryId || !editCategory.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/categories/${editingCategoryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editCategory),
+      });
+
+      if (res.ok) {
+        toast.success('Category updated successfully');
+        setIsEditCategoryOpen(false);
+        setEditingCategoryId(null);
+        loadCategories();
+        setEditCategory(initialCategoryState);
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to update category');
+      }
+    } catch (error) {
+      console.error('Error updating category:', error);
+      toast.error('Error updating category');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/categories/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        toast.success('Category deleted successfully');
+        loadCategories();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to delete category');
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      toast.error('Error deleting category');
     }
   };
 
@@ -556,6 +737,10 @@ export default function AdminDashboard() {
     p.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredCategories = categories.filter(c =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const filteredOrders = orders.filter(o =>
     o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
     o.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -751,6 +936,44 @@ export default function AdminDashboard() {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold">Products Management</h3>
+                <div className=' flex gap-4'>
+                <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-[#2C2C2C]">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New Category
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Add New Category</DialogTitle>
+                      <p className="text-sm text-gray-500 mt-2">
+      Categories help organize your products.
+    </p>
+                    </DialogHeader>
+                    <CategoryForm
+    category={newCategory}
+    setCategory={setNewCategory}
+    onSubmit={handleAddCategory}
+    submitLabel="Create Category"
+  />
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={isEditCategoryOpen} onOpenChange={setIsEditCategoryOpen}>
+  <DialogContent className="max-w-md">
+    <DialogHeader>
+      <DialogTitle>Edit Category</DialogTitle>
+    </DialogHeader>
+    <CategoryForm
+      category={editCategory}
+      setCategory={setEditCategory}
+      onSubmit={handleUpdateCategory}
+      submitLabel="Update Category"
+    />
+  </DialogContent>
+</Dialog>
+
                 <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
                   <DialogTrigger asChild>
                     <Button className="bg-[#2C2C2C]">
@@ -763,11 +986,12 @@ export default function AdminDashboard() {
                       <DialogTitle>Add New Product</DialogTitle>
                     </DialogHeader>
                     <ProductForm
-                      product={newProduct}
-                      setProduct={setNewProduct}
-                      onSubmit={handleAddProduct}
-                      submitLabel="Add Product"
-                    />
+        product={newProduct}
+        setProduct={setNewProduct}
+        onSubmit={handleAddProduct}
+        submitLabel="Add Product"
+        categories={categories}
+      />
                   </DialogContent>
                 </Dialog>
 
@@ -777,13 +1001,15 @@ export default function AdminDashboard() {
                       <DialogTitle>Edit Product</DialogTitle>
                     </DialogHeader>
                     <ProductForm
-                      product={editProduct}
-                      setProduct={setEditProduct}
-                      onSubmit={handleUpdateProduct}
-                      submitLabel="Update Product"
-                    />
+        product={editProduct}
+        setProduct={setEditProduct}
+        onSubmit={handleUpdateProduct}
+        submitLabel="Update Product"
+        categories={categories}
+      />
                   </DialogContent>
                 </Dialog>
+              </div>
               </div>
 
               <Card>
@@ -843,6 +1069,63 @@ export default function AdminDashboard() {
                   </Table>
                 </CardContent>
               </Card>
+
+              <Card className='mt-8'>
+<CardContent className="p-0">
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead>Name</TableHead>
+        <TableHead>Description</TableHead>
+        <TableHead>Products</TableHead>
+        <TableHead>Actions</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {filteredCategories.map((category) => (
+        <TableRow key={category.id}>
+          <TableCell className="font-semibold">{category.name}</TableCell>
+          <TableCell className="text-sm text-gray-600">
+            {category.description || 'No description'}
+          </TableCell>
+          <TableCell>
+            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+              {category._count?.products || 0} products
+            </span>
+          </TableCell>
+          <TableCell>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleEditCategoryClick(category)}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleDeleteCategory(category.id)}
+                disabled={(category._count?.products || 0) > 0}
+                title={(category._count?.products || 0) > 0 ? 'Cannot delete category with products' : 'Delete category'}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      ))}
+      {filteredCategories.length === 0 && (
+        <TableRow>
+          <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+            No categories found. Create your first category to get started.
+          </TableCell>
+        </TableRow>
+      )}
+    </TableBody>
+  </Table>
+</CardContent>
+</Card>
             </div>
           )}
 

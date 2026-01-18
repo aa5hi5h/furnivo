@@ -29,12 +29,9 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Shop</h4>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/collections" className="hover:text-white transition-colors">Collections</Link></li>
               <li><Link href="/category/living-room" className="hover:text-white transition-colors">Living Room</Link></li>
               <li><Link href="/category/bedroom" className="hover:text-white transition-colors">Bedroom</Link></li>
               <li><Link href="/category/dining" className="hover:text-white transition-colors">Dining</Link></li>
-              <li><Link href="/category/office" className="hover:text-white transition-colors">Office</Link></li>
-              <li><Link href="/category/outdoor" className="hover:text-white transition-colors">Outdoor</Link></li>
               <li><Link href="/products?filter=new" className="hover:text-white transition-colors">New Arrivals</Link></li>
               <li><Link href="/sale" className="hover:text-white transition-colors">Sale</Link></li>
             </ul>
@@ -44,11 +41,7 @@ export default function Footer() {
             <h4 className="font-semibold mb-4">Customer Care</h4>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
-              <li><Link href="/shipping" className="hover:text-white transition-colors">Shipping Info</Link></li>
-              <li><Link href="/returns" className="hover:text-white transition-colors">Returns & Exchange</Link></li>
               <li><Link href="/design-services" className="hover:text-white transition-colors">Design Services</Link></li>
-              <li><Link href="/faq" className="hover:text-white transition-colors">FAQs</Link></li>
-              <li><Link href="/track-order" className="hover:text-white transition-colors">Track Order</Link></li>
             </ul>
           </div>
 
