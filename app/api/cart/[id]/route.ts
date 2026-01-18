@@ -1,3 +1,4 @@
+// app/api/cart/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -12,11 +13,27 @@ export async function DELETE(
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Await params
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     const { id } = await params;
+
+    // Verify the cart item belongs to the user
+    const cartItem = await prisma.cartItem.findUnique({
+      where: { id },
+    });
+
+    if (!cartItem || cartItem.userId !== user.id) {
+      return NextResponse.json({ error: 'Cart item not found' }, { status: 404 });
+    }
 
     await prisma.cartItem.delete({
       where: { id },
@@ -24,8 +41,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, message: 'Item removed from cart' });
   } catch (error) {
-    console.error('Error removing from cart:', error);
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    console.error('Error removing cart item:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -38,26 +55,42 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Await params
-    const { id } = await params;
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     const body = await req.json();
     const { quantity } = body;
 
     if (!quantity || quantity < 1) {
       return NextResponse.json(
-        { success: false, error: 'Invalid quantity' },
+        { error: 'Invalid quantity' },
         { status: 400 }
       );
     }
 
-    const cartItem = await prisma.cartItem.update({
+    const { id } = await params;
+
+    // Verify the cart item belongs to the user
+    const cartItem = await prisma.cartItem.findUnique({
+      where: { id },
+    });
+
+    if (!cartItem || cartItem.userId !== user.id) {
+      return NextResponse.json({ error: 'Cart item not found' }, { status: 404 });
+    }
+
+    const updatedItem = await prisma.cartItem.update({
       where: { id },
       data: { quantity },
-      include: { 
+      include: {
         product: {
           select: {
             id: true,
@@ -71,9 +104,9 @@ export async function PATCH(
       },
     });
 
-    return NextResponse.json({ success: true, data: cartItem });
+    return NextResponse.json({ success: true, data: updatedItem });
   } catch (error) {
     console.error('Error updating cart item:', error);
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

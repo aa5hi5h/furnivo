@@ -57,27 +57,25 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      // Allow OAuth sign in
-      if (account?.provider === 'google') {
-        return true;
-      }
-      // Allow credentials sign in
       return true;
     },
     async jwt({ token, user, account }) {
+      // Initial sign in
       if (user) {
         token.id = user.id;
         token.image = user.image;
       }
+      
       // Store the provider info
       if (account) {
         token.provider = account.provider;
       }
+      
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
+        session.user.id = (token.id as string) || (token.sub as string);
         session.user.image = token.image as string;
       }
       return session;
@@ -85,11 +83,41 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn({ user, account, isNewUser }) {
-      // You can add custom logic here
-      // For example, send welcome email for new users
+      console.log('🔐 Sign in event:', {
+        email: user.email,
+        provider: account?.provider,
+        isNewUser,
+      });
+      
       if (isNewUser) {
-        console.log('New user signed up:', user.email);
+        console.log('🎉 New user signed up:', user.email);
       }
     },
   },
+  debug: process.env.NODE_ENV === 'development',
 };
+
+// Extend the built-in session types
+declare module 'next-auth' {
+  interface Session {
+    user: {
+      id: string;
+      email: string;
+      name?: string | null;
+      image?: string | null;
+    };
+  }
+  
+  interface User {
+    id: string;
+    email: string;
+    name?: string | null;
+    image?: string | null;
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    provider?: string;
+  }
+}

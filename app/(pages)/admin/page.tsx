@@ -44,6 +44,9 @@ import CustomerSearchBar from '@/components/admin/CustomerSearchBar';
 import BookingSearchBar from '@/components/admin/BookingSearchbar';
 import AdminProfileDropdown from '@/components/admin/AdminProfileDropdown';
 import { toast } from 'sonner';
+import AdminAnalytics from '@/components/admin-analytics-pannel';
+import AdminSettingsPanel from '@/components/admin-setting-pannel';
+import AdminAuthModal from '@/components/admin-auth-modal';
 
 interface Product {
   id: string;
@@ -269,6 +272,7 @@ export default function AdminDashboard() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [viewOrderDetails, setViewOrderDetails] = useState<Order | null>(null);
   const [viewBookingDetails, setViewBookingDetails] = useState<DesignBooking | null>(null);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
 
   const [newProduct, setNewProduct] = useState(initialProductState);
   const [editProduct, setEditProduct] = useState(initialProductState);
@@ -276,13 +280,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth');
-    } else if (status === 'authenticated') {
+    } else if (status === 'authenticated' && isAdminAuthenticated) {
       loadProducts();
       loadOrders();
       loadBookings();
       loadCustomers();
+    } else if (status === 'authenticated' && !isAdminAuthenticated) {
+      setLoading(false); 
     }
-  }, [status]);
+  }, [status, isAdminAuthenticated]);
 
   const loadProducts = async () => {
     try {
@@ -518,6 +524,10 @@ export default function AdminDashboard() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C47456]"></div>
       </div>
     );
+  }
+
+  if (!isAdminAuthenticated) {
+    return <AdminAuthModal onAuthenticated={() => setIsAdminAuthenticated(true)} />;
   }
 
   const stats = [
@@ -1166,49 +1176,15 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {activeTab === 'analytics' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Analytics & Reports</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <div className="text-sm text-gray-600">Avg Order Value</div>
-                      <div className="text-2xl font-bold">
-                        ₹{orders.length > 0
-                          ? Math.round(orders.reduce((sum, o) => sum + o.totalAmount, 0) / orders.length)
-                          : 0}
-                      </div>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-lg">
-                      <div className="text-sm text-gray-600">Total Products</div>
-                      <div className="text-2xl font-bold">{products.length}</div>
-                    </div>
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <div className="text-sm text-gray-600">Pending Bookings</div>
-                      <div className="text-2xl font-bold">
-                        {bookings.filter(b => b.status === 'pending').length}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-gray-600">More detailed analytics features coming soon.</p>
-                </div>
-              </CardContent>
-            </Card>
+{activeTab === 'analytics' && (
+            <AdminAnalytics 
+              orders={orders} 
+              products={products} 
+              customers={customers} 
+            />
           )}
 
-          {activeTab === 'settings' && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Settings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">Settings features coming soon.</p>
-              </CardContent>
-            </Card>
-          )}
+{activeTab === 'settings' && <AdminSettingsPanel />}
         </div>
       </main>
     </div>
