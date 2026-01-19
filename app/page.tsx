@@ -158,7 +158,7 @@ export default async function Home() {
               Discover What You Love
             </h2>
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Handpicked furniture pieces that combine style, comfort, and quality
+              Handpicked furnitue pieces that combine style, comfort, and quality
             </p>
           </div>
 

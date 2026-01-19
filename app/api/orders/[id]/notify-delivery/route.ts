@@ -7,7 +7,7 @@ import { sendDeliveryNotificationEmail } from '@/lib/email';
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,8 +20,11 @@ export async function POST(
       );
     }
 
+    // Await params to get the actual id
+    const { id } = await params;
+
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { user: true },
     });
 
@@ -32,19 +35,19 @@ export async function POST(
       );
     }
 
-    // Send delivery notification
-    await sendDeliveryNotificationEmail(
-      order.user.email,
-      order.user.name,
-      order.id,
-      req.headers.get('x-tracking-number') || undefined
-    );
-
-    // Update order status to delivered
-    await prisma.order.update({
-      where: { id: params.id },
-      data: { status: 'delivered' },
-    });
+    // Run email sending and database update concurrently
+    await Promise.all([
+      sendDeliveryNotificationEmail(
+        order.user.email,
+        order.user.name,
+        order.id,
+        req.headers.get('x-tracking-number') || undefined
+      ),
+      prisma.order.update({
+        where: { id },
+        data: { status: 'delivered' },
+      })
+    ]);
 
     return NextResponse.json({
       success: true,
