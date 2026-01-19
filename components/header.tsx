@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { User, Heart, ShoppingCart, Menu, X, Trash2, Plus, Minus } from 'lucide-react';
 import { useCart } from '@/contexts/cart-context';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import SearchDropdown from '@/components/search/SearchDropdown';
-import Image from 'next/image';
+import FurnzLogo from ".././public/Furnz-logo.png"
 
 export default function Header() {
   const { items, itemCount, removeFromCart, updateQuantity } = useCart();
@@ -25,8 +26,6 @@ export default function Header() {
     { name: 'LIVING ROOM', href: '/category/living-room' },
     { name: 'BEDROOM', href: '/category/bedroom' },
     { name: 'DINING', href: '/category/dining' },
-    { name: 'OFFICE', href: '/category/office' },
-    { name: 'OUTDOOR', href: '/category/outdoor' },
     { name: 'SALE', href: '/sale' },
     { name: 'DESIGN SERVICES', href: '/design-services' },
   ];
@@ -99,35 +98,45 @@ export default function Header() {
     <>
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="max-w-[1920px] mx-auto">
-          <div className="px-6 py-4 flex items-center justify-between gap-8">
-            <Link href="/" className="text-2xl font-serif font-bold text-[#2C2C2C] whitespace-nowrap">
-              FURNIVO
+          <div className="px-6 py-4 flex items-center justify-between gap-4 lg:gap-8">
+            {/* Logo */}
+            <Link href="/" className="flex-shrink-0">
+              <Image
+                src={FurnzLogo}
+                alt="furnZ"
+                width={180}
+                height={180}
+                className="h-20 w-auto -my-4 ml-2"
+                priority
+              />
             </Link>
 
-            {/* Desktop Search */}
-            <div className="hidden lg:block flex-1 max-w-xl">
+            {/* Search Bar - Desktop & Mobile */}
+            <div className="flex-1 max-w-2xl">
               <SearchDropdown />
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 lg:gap-4">
               <Button variant="outline" className="hidden md:flex rounded-full px-6">
                 Book Design Consult
               </Button>
 
+              {/* Desktop Only - User & Wishlist Icons */}
               <Link
                 href={session?.user ? '/account' : '/auth'}
-                className="hover:text-[#C47456] transition-colors"
+                className="hidden lg:block hover:text-[#C47456] transition-colors"
               >
                 <User className="w-6 h-6" />
               </Link>
 
               <Link
                 href="/wishlist"
-                className="hover:text-[#C47456] transition-colors"
+                className="hidden lg:block hover:text-[#C47456] transition-colors"
               >
                 <Heart className="w-6 h-6" />
               </Link>
 
+              {/* Cart - Always Visible */}
               <button
                 onClick={() => setIsCartOpen(true)}
                 className="relative hover:text-[#C47456] transition-colors"
@@ -140,6 +149,7 @@ export default function Header() {
                 )}
               </button>
 
+              {/* Mobile Menu Toggle */}
               <button
                 className="lg:hidden text-gray-700"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -159,6 +169,31 @@ export default function Header() {
               mobileMenuOpen ? 'block' : 'hidden'
             } lg:block border-t border-gray-200`}
           >
+            {/* Mobile User Actions */}
+            <div className="lg:hidden border-b border-gray-200 px-6 py-4">
+              <div className="flex justify-center items-center gap-4">
+                <Link
+                  href={session?.user ? '/account' : '/auth'}
+                  className="flex items-center gap-2 hover:text-[#C47456] transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <User className="w-5 h-5" />
+                  <span className="text-sm font-medium">
+                    {session?.user ? 'My Account' : 'Sign In'}
+                  </span>
+                </Link>
+                <Link
+                  href="/wishlist"
+                  className="flex items-center gap-2 hover:text-[#C47456] transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Heart className="w-5 h-5" />
+                  <span className="text-sm font-medium">Wishlist</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* Navigation Links */}
             <ul className="flex flex-col lg:flex-row items-center justify-center gap-1 lg:gap-8 px-6 py-4 text-sm">
               {categories.map((category) => (
                 <li key={category.name}>
@@ -173,11 +208,6 @@ export default function Header() {
               ))}
             </ul>
           </nav>
-
-          {/* Mobile Search */}
-          <div className="lg:hidden px-6 pb-4">
-            <SearchDropdown />
-          </div>
         </div>
       </header>
 

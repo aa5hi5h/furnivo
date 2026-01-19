@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Star, Heart, Truck, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Star, Heart, Truck, ChevronRight, ChevronLeft, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Accordion,
@@ -494,6 +494,15 @@ export default function ProductDetailPage() {
                   />
                 )}
               </Button>
+            </div>
+
+            <div className="border-l-2 border-[#C47456] bg-gray-50 px-4 py-3 mb-6">
+              <div className='flex gap-4 items-center'>
+                <Info />
+              <p className="text-sm text-gray-700">
+                <span className="font-medium text-[#2C2C2C]">Made to Order</span> — Each piece is handcrafted upon order, ensuring quality and attention to detail.
+              </p>
+              </div>
             </div>
 
             {/* Shipping Info */}

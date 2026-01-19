@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Facebook, Instagram, Youtube } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
+import FurnZLogo from ".././public/Furnz-logo.png"
 
 export default function Footer() {
   return (
@@ -9,7 +11,16 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
           <div>
-            <h3 className="text-2xl font-serif font-bold mb-4">FURNIVO</h3>
+          <Link href="/" className="flex-shrink-0">
+  <Image
+    src={FurnZLogo}
+    alt="furnZ"
+    width={180}
+    height={180}
+    className="h-16 w-auto -my-4 mb-4 ml-2"
+    priority
+  />
+</Link>
             <p className="text-gray-400 text-sm mb-6">
               Crafting exceptional furniture that transforms your living spaces with timeless elegance and modern comfort.
             </p>
@@ -81,11 +92,11 @@ export default function Footer() {
 
         <div className="border-t border-white/10 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
-            <div>© 2025 Furnivo. All rights reserved.</div>
+            <div>© 2025 FurnZ. All rights reserved.</div>
             <div className="flex gap-6">
-              <Link href="/terms" className="hover:text-white transition-colors">Terms & Conditions</Link>
-              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-              <Link href="/cookies" className="hover:text-white transition-colors">Cookie Policy</Link>
+              <Link href="/" className="hover:text-white transition-colors">Terms & Conditions</Link>
+              <Link href="/" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link href="/" className="hover:text-white transition-colors">Cookie Policy</Link>
             </div>
             <div className="flex gap-2 items-center">
               <span className="text-xs">We accept:</span>

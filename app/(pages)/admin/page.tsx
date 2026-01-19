@@ -16,6 +16,7 @@ import {
   Trash2,
   Eye,
   X,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,9 @@ import AdminSettingsPanel from '@/components/admin-setting-pannel';
 import AdminAuthModal from '@/components/admin-auth-modal';
 import ColorVariantManager from '@/components/color-varient-manager';
 import ImageUploader from '@/components/image-uploader-componet';
+import Link from 'next/link';
+import FurnZLogo from "../../../public/Furnz-logo.png"
+import CollectionImageUploader from '@/components/collection-image-uploader';
 
 interface Product {
   id: string;
@@ -66,6 +70,7 @@ interface Product {
   materials: string | null;
   featured: boolean;
   createdAt: string;
+  collectionId: string | null;
 }
 
 interface Order {
@@ -143,6 +148,66 @@ const initialCategoryState = {
   description: '',
 };
 
+interface Collection {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  imageUrl: string;
+  createdAt: string;
+  _count?: {
+    products: number;
+  };
+}
+
+// 2. ADD initial state for collections:
+const initialCollectionState = {
+  name: '',
+  description: '',
+  imageUrl: '',
+};
+
+const CollectionForm = ({
+  collection,
+  setCollection,
+  onSubmit,
+  submitLabel,
+}: {
+  collection: typeof initialCollectionState;
+  setCollection: React.Dispatch<React.SetStateAction<typeof initialCollectionState>>;
+  onSubmit: () => void;
+  submitLabel: string;
+}) => (
+  <div className="space-y-4">
+    <div>
+      <Label>Collection Name *</Label>
+      <Input
+        value={collection.name}
+        onChange={(e) => setCollection({ ...collection, name: e.target.value })}
+        placeholder="e.g., Summer 2024, Modern Minimalist"
+      />
+    </div>
+    <div>
+      <Label>Description (Optional)</Label>
+      <Textarea
+        value={collection.description}
+        onChange={(e) => setCollection({ ...collection, description: e.target.value })}
+        rows={3}
+        placeholder="Brief description of this collection"
+      />
+    </div>
+    <div>
+      <Label>Collection Image *</Label>
+      <CollectionImageUploader
+        imageUrl={collection.imageUrl}
+        onImageChange={(url: string) => setCollection({ ...collection, imageUrl: url })}
+      />
+    </div>
+    <Button onClick={onSubmit} className="w-full bg-[#2C2C2C]">
+      {submitLabel}
+    </Button>
+  </div>
+);
 
 const ProductForm = ({
   product,
@@ -427,11 +492,20 @@ export default function AdminDashboard() {
   const [viewOrderDetails, setViewOrderDetails] = useState<Order | null>(null);
   const [viewBookingDetails, setViewBookingDetails] = useState<DesignBooking | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isManageProductsOpen, setIsManageProductsOpen] = useState(false);
+const [selectedCollectionForProducts, setSelectedCollectionForProducts] = useState<string | null>(null);
 
   const [newProduct, setNewProduct] = useState(initialProductState);
   const [editProduct, setEditProduct] = useState(initialProductState);
   const [newCategory, setNewCategory] = useState(initialCategoryState);
   const [editCategory, setEditCategory] = useState(initialCategoryState);
+
+  const [collections, setCollections] = useState<Collection[]>([]);
+const [isAddCollectionOpen, setIsAddCollectionOpen] = useState(false);
+const [isEditCollectionOpen, setIsEditCollectionOpen] = useState(false);
+const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+const [newCollection, setNewCollection] = useState(initialCollectionState);
+const [editCollection, setEditCollection] = useState(initialCollectionState);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -442,10 +516,145 @@ export default function AdminDashboard() {
       loadBookings();
       loadCustomers();
       loadCategories();
+      loadCollections();
     } else if (status === 'authenticated' && !isAdminAuthenticated) {
       setLoading(false); 
     }
   }, [status, isAdminAuthenticated]);
+
+
+  const loadCollections = async () => {
+    try {
+      const res = await fetch('/api/admin/collections');
+      if (res.ok) {
+        const data = await res.json();
+        setCollections(data);
+      }
+    } catch (error) {
+      console.error('Error loading collections:', error);
+    }
+  };
+
+  const handleManageProducts = (collectionId: string) => {
+    setSelectedCollectionForProducts(collectionId);
+    setIsManageProductsOpen(true);
+  };
+  
+  const handleToggleProduct = async (productId: string, currentCollectionId: string | null) => {
+    if (!selectedCollectionForProducts) return;
+    
+    const newCollectionId = currentCollectionId === selectedCollectionForProducts 
+      ? null 
+      : selectedCollectionForProducts;
+    
+    try {
+      const res = await fetch(`/api/admin/products/${productId}/collection`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collectionId: newCollectionId }),
+      });
+  
+      if (res.ok) {
+        toast.success(newCollectionId ? 'Product added to collection' : 'Product removed from collection');
+        loadProducts();
+        loadCollections();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to update product');
+      }
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast.error('Error updating product');
+    }
+  };
+  
+  const handleAddCollection = async () => {
+    if (!newCollection.name.trim() || !newCollection.imageUrl.trim()) {
+      toast.error('Name and image URL are required');
+      return;
+    }
+  
+    try {
+      const res = await fetch('/api/admin/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCollection),
+      });
+  
+      if (res.ok) {
+        toast.success('Collection created successfully');
+        setIsAddCollectionOpen(false);
+        loadCollections();
+        setNewCollection(initialCollectionState);
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to create collection');
+      }
+    } catch (error) {
+      console.error('Error creating collection:', error);
+      toast.error('Error creating collection');
+    }
+  };
+  
+  const handleEditCollectionClick = (collection: Collection) => {
+    setEditingCollectionId(collection.id);
+    setEditCollection({
+      name: collection.name,
+      description: collection.description || '',
+      imageUrl: collection.imageUrl,
+    });
+    setIsEditCollectionOpen(true);
+  };
+  
+  const handleUpdateCollection = async () => {
+    if (!editingCollectionId || !editCollection.name.trim() || !editCollection.imageUrl.trim()) {
+      toast.error('Name and image URL are required');
+      return;
+    }
+  
+    try {
+      const res = await fetch(`/api/admin/collections/${editingCollectionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editCollection),
+      });
+  
+      if (res.ok) {
+        toast.success('Collection updated successfully');
+        setIsEditCollectionOpen(false);
+        setEditingCollectionId(null);
+        loadCollections();
+        setEditCollection(initialCollectionState);
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to update collection');
+      }
+    } catch (error) {
+      console.error('Error updating collection:', error);
+      toast.error('Error updating collection');
+    }
+  };
+  
+  const handleDeleteCollection = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this collection?')) return;
+  
+    try {
+      const res = await fetch(`/api/admin/collections/${id}`, {
+        method: 'DELETE',
+      });
+  
+      if (res.ok) {
+        toast.success('Collection deleted successfully');
+        loadCollections();
+      } else {
+        const error = await res.json();
+        toast.error(error.error || 'Failed to delete collection');
+      }
+    } catch (error) {
+      console.error('Error deleting collection:', error);
+      toast.error('Error deleting collection');
+    }
+  };
 
   const loadCategories = async () => {
     try {
@@ -827,6 +1036,7 @@ export default function AdminDashboard() {
   const navigation = [
     { name: 'Dashboard', icon: LayoutDashboard, value: 'dashboard' },
     { name: 'Products', icon: Package, value: 'products' },
+    { name: 'Collections', icon: Layers, value: 'collections' },
     { name: 'Orders', icon: ShoppingBag, value: 'orders' },
     { name: 'Customers', icon: Users, value: 'customers' },
     { name: 'Design Bookings', icon: Calendar, value: 'bookings' },
@@ -863,7 +1073,16 @@ export default function AdminDashboard() {
     <div className="flex h-screen bg-gray-50">
       <aside className="w-64 bg-[#2C2C2C] text-white flex flex-col">
         <div className="p-6">
-          <h1 className="text-2xl font-bold font-serif">FURNIVO</h1>
+        <Link href="/admin" className="flex-shrink-0">
+              <Image
+                src={FurnZLogo}
+                alt="furnZ"
+                width={180}
+                height={180}
+                className="h-24 w-auto -my-4 ml-2 "
+                priority
+              />
+            </Link>
           <p className="text-sm text-gray-400">Admin Panel</p>
         </div>
         <nav className="flex-1 px-3">
@@ -1241,6 +1460,177 @@ export default function AdminDashboard() {
             </div>
           )}
 
+{activeTab === 'collections' && (
+  <div>
+    <div className="flex justify-between items-center mb-6">
+      <h3 className="text-xl font-bold">Collections Management</h3>
+      
+      {/* Add Collection Dialog */}
+      <Dialog open={isAddCollectionOpen} onOpenChange={setIsAddCollectionOpen}>
+        <DialogTrigger asChild>
+          <Button className="bg-[#2C2C2C]">
+            <Plus className="w-4 h-4 mr-2" />
+            Add New Collection
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Collection</DialogTitle>
+            <p className="text-sm text-gray-500 mt-2">
+              Collections group related products together
+            </p>
+          </DialogHeader>
+          <CollectionForm
+            collection={newCollection}
+            setCollection={setNewCollection}
+            onSubmit={handleAddCollection}
+            submitLabel="Create Collection"
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Collection Dialog */}
+      <Dialog open={isEditCollectionOpen} onOpenChange={setIsEditCollectionOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Collection</DialogTitle>
+          </DialogHeader>
+          <CollectionForm
+            collection={editCollection}
+            setCollection={setEditCollection}
+            onSubmit={handleUpdateCollection}
+            submitLabel="Update Collection"
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* THIS IS THE KEY PART - Manage Products Dialog */}
+      <Dialog open={isManageProductsOpen} onOpenChange={setIsManageProductsOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Products - {collections.find(c => c.id === selectedCollectionForProducts)?.name}
+            </DialogTitle>
+            <p className="text-sm text-gray-500">
+              Click on products to add or remove from this collection
+            </p>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-2 p-4">
+              {products.map((product) => {
+                const isInCollection = product.collectionId === selectedCollectionForProducts;
+                return (
+                  <div
+                    key={product.id}
+                    className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                      isInCollection
+                        ? 'border-[#C47456] bg-[#C47456]/5'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => handleToggleProduct(product.id, product.collectionId)}
+                  >
+                    <span className="font-medium">{product.name}</span>
+                    <input
+                      type="checkbox"
+                      checked={isInCollection}
+                      readOnly
+                      className="w-5 h-5 cursor-pointer"
+                    />
+                  </div>
+                );
+              })}
+              {products.length === 0 && (
+                <p className="text-center text-gray-500 py-8">
+                  No products available. Create products first.
+                </p>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+    {/* Collections Table */}
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Image</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Products</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {collections.map((collection) => (
+              <TableRow key={collection.id}>
+                <TableCell>
+                  <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                    <img
+                      src={collection.imageUrl}
+                      alt={collection.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.jpg';
+                      }}
+                    />
+                  </div>
+                </TableCell>
+                <TableCell className="font-semibold">{collection.name}</TableCell>
+                <TableCell className="text-sm text-gray-600 max-w-xs truncate">
+                  {collection.description || 'No description'}
+                </TableCell>
+                <TableCell>
+                  {/* THIS BUTTON OPENS THE MANAGE PRODUCTS DIALOG */}
+                  <button
+                    onClick={() => handleManageProducts(collection.id)}
+                    className="px-3 py-1.5 bg-blue-100 text-blue-800 rounded-full text-xs hover:bg-blue-200 transition-colors font-medium"
+                  >
+                    📦 {collection._count?.products || 0} products - Click to manage
+                  </button>
+                </TableCell>
+                <TableCell className="text-sm">
+                  {new Date(collection.createdAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEditCollectionClick(collection)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteCollection(collection.id)}
+                      disabled={(collection._count?.products || 0) > 0}
+                      title={(collection._count?.products || 0) > 0 ? 'Cannot delete collection with products' : 'Delete collection'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+            {collections.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  No collections found. Create your first collection to get started.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  </div>
+)}
+
           {activeTab === 'orders' && (
             <div>
               <Card>
@@ -1446,6 +1836,7 @@ export default function AdminDashboard() {
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
+                    
                     </TableHeader>
                     <TableBody>
                       {filteredBookings.map((booking) => (

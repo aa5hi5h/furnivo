@@ -19,6 +19,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import GeoapifyAutocomplete from '@/components/geo-auto-complete';
 
 interface Address {
   id: string;
@@ -440,91 +441,121 @@ export default function CheckoutPage() {
                       Add New
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Add New Address</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 mt-4">
-                      <div>
-                        <Label>Street Address *</Label>
-                        <Input
-                          value={newAddress.street}
-                          onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
-                          placeholder="123 Main Street, Apartment 4B"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>City *</Label>
-                          <Input
-                            value={newAddress.city}
-                            onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                            placeholder="Mumbai"
-                          />
-                        </div>
-                        <div>
-                          <Label>State *</Label>
-                          <Input
-                            value={newAddress.state}
-                            onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
-                            placeholder="Maharashtra"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>Postal Code *</Label>
-                          <Input
-                            value={newAddress.postalCode}
-                            onChange={(e) => {
-                              const value = e.target.value.replace(/\D/g, '');
-                              if (value.length <= 6) {
-                                setNewAddress({ ...newAddress, postalCode: value });
-                              }
-                            }}
-                            placeholder="400001"
-                            maxLength={6}
-                          />
-                        </div>
-                        <div>
-                          <Label>Country</Label>
-                          <Input
-                            value={newAddress.country}
-                            onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
-                            placeholder="India"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="default"
-                          checked={newAddress.isDefault}
-                          onCheckedChange={(checked) =>
-                            setNewAddress({ ...newAddress, isDefault: checked as boolean })
-                          }
-                        />
-                        <Label htmlFor="default" className="cursor-pointer">
-                          Set as default address
-                        </Label>
-                      </div>
-                      <div className="flex gap-3 pt-4">
-                        <Button
-                          variant="outline"
-                          onClick={() => setShowAddressForm(false)}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={handleSaveAddress}
-                          disabled={savingAddress}
-                          className="flex-1 bg-[#C47456] hover:bg-[#B36647]"
-                        >
-                          {savingAddress ? 'Saving...' : 'Save Address'}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
+                  <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+  <DialogHeader>
+    <DialogTitle>Add New Address</DialogTitle>
+  </DialogHeader>
+  <div className="space-y-4 mt-4">
+    {/* NEW: Address Autocomplete */}
+    <div className='space-y-2'>
+      <Label>Search Address</Label>
+      <GeoapifyAutocomplete
+        defaultValue={newAddress.street}
+        onAddressSelect={(address) => {
+          setNewAddress({
+            ...newAddress,
+            street: address.street,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+            country: address.country,
+          });
+        }}
+        placeholder="Start typing your address..."
+      />
+    </div>
+
+    {/* Divider */}
+    <div className="relative my-4">
+      <div className="absolute inset-0 flex items-center">
+        <div className="w-full border-t border-gray-300"></div>
+      </div>
+      <div className="relative flex justify-center text-sm">
+        <span className="px-2 bg-white text-gray-500">Or enter manually</span>
+      </div>
+    </div>
+
+    {/* Manual Entry Fields */}
+    <div className='space-y-2'>
+      <Label>Street Address *</Label>
+      <Input
+        value={newAddress.street}
+        onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })}
+        placeholder="123 Main Street, Apartment 4B"
+      />
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div className='space-y-2'>
+        <Label>City *</Label>
+        <Input
+          value={newAddress.city}
+          onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+          placeholder="Mumbai"
+        />
+      </div>
+      <div className='space-y-2'>
+        <Label>State *</Label>
+        <Input
+          value={newAddress.state}
+          onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
+          placeholder="Maharashtra"
+        />
+      </div>
+    </div>
+    <div className="grid grid-cols-2 gap-4">
+      <div className='space-y-2'>
+        <Label>Postal Code *</Label>
+        <Input
+          value={newAddress.postalCode}
+          onChange={(e) => {
+            const value = e.target.value.replace(/\D/g, '');
+            if (value.length <= 6) {
+              setNewAddress({ ...newAddress, postalCode: value });
+            }
+          }}
+          placeholder="400001"
+          maxLength={6}
+        />
+      </div>
+      <div className='space-y-2'>
+        <Label>Country</Label>
+        <Input
+          value={newAddress.country}
+          onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })}
+          placeholder="India"
+        />
+      </div>
+    </div>
+    <div className="flex items-center space-x-2">
+      <Checkbox
+        id="default"
+        checked={newAddress.isDefault}
+        onCheckedChange={(checked) =>
+          setNewAddress({ ...newAddress, isDefault: checked as boolean })
+        }
+      />
+      <Label htmlFor="default" className="cursor-pointer">
+        Set as default address
+      </Label>
+    </div>
+    <div className="flex gap-3 pt-4">
+      <Button
+        variant="outline"
+        onClick={() => setShowAddressForm(false)}
+        className="flex-1"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={handleSaveAddress}
+        disabled={savingAddress}
+        className="flex-1 bg-[#C47456] hover:bg-[#B36647]"
+      >
+        {savingAddress ? 'Saving...' : 'Save Address'}
+      </Button>
+    </div>
+  </div>
+</DialogContent>
                 </Dialog>
               </div>
 

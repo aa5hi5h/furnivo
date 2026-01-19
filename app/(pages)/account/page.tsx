@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {Package,Heart,MapPin,Settings,LogOut,Trash2,Plus,Edit,CheckCircle,Clock,Truck,XCircle,Loader2,Eye,EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmationModal from '@/components/confirmation-modal';
+import GeoapifyAutocomplete from '@/components/geo-auto-complete';
 
 // Interfaces
 interface Product {
@@ -149,7 +150,7 @@ export default function AccountPage() {
     if (status === 'authenticated' && session?.user?.id) {
       loadUserData(session.user.id);
     }
-  }, [status, session, router]);
+  }, [status, session]);
 
   const loadUserData = async (userId: string) => {
     try {
@@ -718,95 +719,127 @@ export default function AccountPage() {
               </div>
 
               {showAddressForm && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleSaveAddress} className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">Street Address</label>
-                        <input
-                          type="text"
-                          className="w-full border rounded-lg px-4 py-2"
-                          value={addressForm.street}
-                          onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                          required
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2">City</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded-lg px-4 py-2"
-                            value={addressForm.city}
-                            onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-2">State</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded-lg px-4 py-2"
-                            value={addressForm.state}
-                            onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })}
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2">Postal Code</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded-lg px-4 py-2"
-                            value={addressForm.postalCode}
-                            onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium mb-2">Country</label>
-                          <input
-                            type="text"
-                            className="w-full border rounded-lg px-4 py-2"
-                            value={addressForm.country}
-                            onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })}
-                            required
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="isDefault"
-                          className="mr-2"
-                          checked={addressForm.isDefault}
-                          onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
-                        />
-                        <label htmlFor="isDefault" className="text-sm">Set as default address</label>
-                      </div>
-                      <div className="flex gap-3">
-                        <Button type="submit" disabled={saving}>
-                          {saving ? 'Saving...' : 'Save Address'}
-                        </Button>
-                        <Button 
-                          type="button" 
-                          variant="outline"
-                          onClick={() => {
-                            setShowAddressForm(false);
-                            setEditingAddress(null);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </form>
-                  </CardContent>
-                </Card>
-              )}
+  <Card>
+    <CardHeader>
+      <CardTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <form onSubmit={handleSaveAddress} className="space-y-4">
+        {/* NEW: Address Autocomplete */}
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Search Address
+          </label>
+          <GeoapifyAutocomplete
+            defaultValue={addressForm.street}
+            onAddressSelect={(address) => {
+              setAddressForm({
+                ...addressForm,
+                street: address.street,
+                city: address.city,
+                state: address.state,
+                postalCode: address.postalCode,
+                country: address.country,
+              });
+            }}
+            placeholder="Start typing your address..."
+          />
+        </div>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or enter manually</span>
+          </div>
+        </div>
+
+        {/* Manual Entry Fields */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Street Address</label>
+          <input
+            type="text"
+            className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C47456]"
+            value={addressForm.street}
+            onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+            required
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">City</label>
+            <input
+              type="text"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C47456]"
+              value={addressForm.city}
+              onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">State</label>
+            <input
+              type="text"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C47456]"
+              value={addressForm.state}
+              onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Postal Code</label>
+            <input
+              type="text"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C47456]"
+              value={addressForm.postalCode}
+              onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Country</label>
+            <input
+              type="text"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#C47456]"
+              value={addressForm.country}
+              onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })}
+              required
+            />
+          </div>
+        </div>
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="isDefault"
+            className="mr-2"
+            checked={addressForm.isDefault}
+            onChange={(e) => setAddressForm({ ...addressForm, isDefault: e.target.checked })}
+          />
+          <label htmlFor="isDefault" className="text-sm">Set as default address</label>
+        </div>
+        <div className="flex gap-3">
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving...' : 'Save Address'}
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline"
+            onClick={() => {
+              setShowAddressForm(false);
+              setEditingAddress(null);
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </CardContent>
+  </Card>
+)}
 
               {addresses.length === 0 && !showAddressForm ? (
                 <Card>
