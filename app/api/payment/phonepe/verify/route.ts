@@ -53,6 +53,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Check if user has required fields
+    if (!order.user.email || !order.user.name) {
+      return NextResponse.redirect(
+        `${PHONEPE_CONFIG.redirectUrl}/payment-failed?error=User information incomplete`
+      );
+    }
+
     // Check if order is already processed
     if (order.status !== 'pending') {
       console.log('Order already processed, redirecting to success');
