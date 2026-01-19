@@ -118,7 +118,9 @@ export default function Header() {
 
             <div className="flex items-center gap-3 lg:gap-4">
               <Button variant="outline" className="hidden md:flex rounded-full px-6">
+                <Link href={"/contact"}>
                 Book Design Consult
+                </Link>
               </Button>
 
               {/* Desktop Only - User & Wishlist Icons */}
