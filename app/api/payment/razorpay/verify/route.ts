@@ -65,6 +65,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check if user has required fields
+    if (!order.user.email || !order.user.name) {
+      return NextResponse.json(
+        { success: false, error: 'User information incomplete' },
+        { status: 400 }
+      );
+    }
+
     // Check if already processed
     if (order.status !== 'pending') {
       console.log('Order already processed');
