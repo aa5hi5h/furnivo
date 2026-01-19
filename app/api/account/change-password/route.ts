@@ -42,9 +42,9 @@ export async function PUT(req: NextRequest) {
       },
     });
 
-    if (!user) {
+    if (!user || !user.password) {
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: 'User not found or password not set' },
         { status: 404 }
       );
     }

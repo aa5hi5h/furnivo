@@ -35,6 +35,14 @@ export async function POST(
       );
     }
 
+    // Check if user has required fields
+    if (!order.user.email || !order.user.name) {
+      return NextResponse.json(
+        { success: false, error: 'User information incomplete' },
+        { status: 400 }
+      );
+    }
+
     // Run email sending and database update concurrently
     await Promise.all([
       sendDeliveryNotificationEmail(
