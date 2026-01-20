@@ -4,6 +4,7 @@ import { ArrowRight, MapPin, Facebook, Instagram, Truck, Shield, Award } from 'l
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/product-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import CtaDirection from '@/components/cta-dir';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3000';
 
@@ -443,88 +444,7 @@ export default async function Home() {
 
       
       {/* Stores Section */}
-      <section className="bg-white py-20">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-lg">
-              <Image
-                src="https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg"
-                alt="Store Interior"
-                fill
-                className="object-cover"
-              />
-            </div>
-
-            <div>
-              <p className="text-sm uppercase tracking-widest text-[#C47456] mb-4 font-semibold">VISIT US</p>
-              <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[#2C2C2C] mb-8">Our Showrooms</h2>
-              <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-                Visit our flagship stores to experience our furniture in person and get personalized design consultations
-              </p>
-
-              <div className="space-y-8">
-                <div className="pb-8 border-b border-gray-200">
-                  <div className="flex items-start gap-3 mb-4">
-                    <MapPin className="w-5 h-5 text-[#C47456] flex-shrink-0 mt-1" />
-                    <div>
-                      <h3 className="text-2xl font-semibold text-[#2C2C2C] mb-2">Mumbai</h3>
-                      <p className="text-gray-600 mb-3">Delta House, Worli, 400018</p>
-                      <Link 
-                        href="https://maps.google.com/?q=Delta+House+Worli+Mumbai"
-                        target="_blank"
-                        className="text-[#C47456] font-medium hover:underline inline-flex items-center gap-2"
-                      >
-                        GET DIRECTIONS
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                      <p className="text-sm text-gray-500 mt-3">Every day 10am to 7pm</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pb-8 border-b border-gray-200">
-                  <div className="flex items-start gap-3 mb-4">
-                    <MapPin className="w-5 h-5 text-[#C47456] flex-shrink-0 mt-1" />
-                    <div>
-                      <h3 className="text-2xl font-semibold text-[#2C2C2C] mb-2">Goa</h3>
-                      <p className="text-gray-600 mb-3">FC Goa House, Porvorim, 403521</p>
-                      <Link 
-                        href="https://maps.google.com/?q=FC+Goa+House+Porvorim"
-                        target="_blank"
-                        className="text-[#C47456] font-medium hover:underline inline-flex items-center gap-2"
-                      >
-                        GET DIRECTIONS
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                      <p className="text-sm text-gray-500 mt-3">Every day 10am to 7pm</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-8">
-                  <h3 className="text-xl font-semibold text-[#2C2C2C] mb-4">Follow Us</h3>
-                  <div className="flex gap-4">
-                    <Link 
-                      href="https://facebook.com/furnivo"
-                      target="_blank"
-                      className="text-gray-600 hover:text-[#C47456] hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center transition-all"
-                    >
-                      <Facebook className="w-5 h-5" />
-                    </Link>
-                    <Link 
-                      href="https://instagram.com/furnivo"
-                      target="_blank"
-                      className="text-gray-600 hover:text-[#C47456] hover:bg-gray-100 w-10 h-10 rounded-full flex items-center justify-center transition-all"
-                    >
-                      <Instagram className="w-5 h-5" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <CtaDirection />
     </div>
   );
 }
