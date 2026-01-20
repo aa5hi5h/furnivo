@@ -1,9 +1,11 @@
 'use client';
 
+import { StaticImageData } from 'next/image';
+
 interface CategoryHeroProps {
   title: string;
   subtitle: string;
-  backgroundImage: string;
+  backgroundImage: string | StaticImageData;
   breadcrumb?: string;
 }
 
@@ -13,10 +15,15 @@ export function CategoryHero({
   backgroundImage,
   breadcrumb = 'Home',
 }: CategoryHeroProps) {
+  // Handle both string URLs and StaticImageData
+  const bgImage = typeof backgroundImage === 'string' 
+    ? backgroundImage 
+    : backgroundImage.src;
+
   return (
     <div
       className="relative w-full h-[60vh] bg-cover bg-center"
-      style={{ backgroundImage: `url('${backgroundImage}')` }}
+      style={{ backgroundImage: `url('${bgImage}')` }}
     >
       <div className="absolute inset-0 bg-black/30" />
       <div className="relative h-full flex flex-col justify-end p-8 md:p-16">

@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useCart } from '@/contexts/cart-context';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
+import DiningImage from "../../../../public/CathieHong-Saratoga_9-65822678d6c649768760c780b534aed7.jpg"
 
 interface Product {
   id: string;
@@ -266,7 +267,7 @@ export default function DiningPage() {
       <CategoryHero
         title="Dining"
         subtitle="Make every meal memorable with furniture that brings everyone together."
-        backgroundImage="https://images.pexels.com/photos/3622613/pexels-photo-3622613.jpeg?auto=compress&cs=tinysrgb&w=1600"
+        backgroundImage={DiningImage}
         breadcrumb="Home > Dining"
       />
 

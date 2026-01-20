@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useCart } from '@/contexts/cart-context';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
+import BedroomImage from "../../../../public/7K3A5236-4-700x467.webp"
 
 interface Product {
   id: string;
@@ -258,7 +259,7 @@ export default function BedroomPage() {
       <CategoryHero
         title="Bedroom"
         subtitle="Your personal sanctuary. Discover furniture designed for rest and relaxation."
-        backgroundImage="https://images.pexels.com/photos/271619/pexels-photo-271619.jpeg?auto=compress&cs=tinysrgb&w=1600"
+        backgroundImage={BedroomImage}
         breadcrumb="Home > Bedroom"
       />
 

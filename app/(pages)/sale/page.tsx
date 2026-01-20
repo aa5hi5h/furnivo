@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { QuickViewModal } from '@/components/quick-view-modal';
 import Link from 'next/link';
 import {toast} from "sonner"
+
 interface Product {
   id: string;
   name: string;
@@ -18,8 +19,8 @@ interface Product {
   images: string[];
   colors?: string[];
   stock: number;
-  rating: number; // Changed from optional to required
-  review_count: number; // Changed from optional to required
+  rating: number;
+  review_count: number;
   createdAt: Date | string;
   updatedAt: Date | string;
 }
@@ -30,37 +31,17 @@ export default function SalePage() {
   const [loading, setLoading] = useState(true);
   const [selectedRange, setSelectedRange] = useState('all');
   const [sortBy, setSortBy] = useState('discount');
-  const [timeLeft, setTimeLeft] = useState({ days: 3, hours: 14, minutes: 23 });
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showQuickView, setShowQuickView] = useState(false);
   const { addToCart } = useCart();
 
   useEffect(() => {
     fetchSaleProducts();
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        let { days, hours, minutes } = prev;
-        if (minutes > 0) {
-          minutes--;
-        } else if (hours > 0) {
-          hours--;
-          minutes = 59;
-        } else if (days > 0) {
-          days--;
-          hours = 23;
-          minutes = 59;
-        }
-        return { days, hours, minutes };
-      });
-    }, 60000);
-
-    return () => clearInterval(timer);
   }, []);
 
   const fetchSaleProducts = async () => {
     try {
       setLoading(true);
-      // Fetch products with originalPrice (sale items)
       const response = await fetch('/api/products?hasDiscount=true');
       const result = await response.json();
 
@@ -132,30 +113,12 @@ export default function SalePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Banner */}
-      <div className="bg-gradient-to-r from-[#2C2C2C] to-[#C47456] text-white py-16 text-center">
-        <h1 className="text-5xl md:text-7xl font-serif font-bold mb-4">
-          SALE - UP TO 50% OFF
+      {/* Minimal Hero Banner */}
+      <div className="bg-white border-b py-16 text-center">
+        <h1 className="text-5xl md:text-6xl font-light mb-4 tracking-tight text-gray-900">
+          Sale
         </h1>
-        <p className="text-xl md:text-2xl mb-8">Limited time only!</p>
-
-        {/* Countdown Timer */}
-        <div className="flex justify-center gap-8 mb-8">
-          {[
-            { label: 'DAYS', value: timeLeft.days },
-            { label: 'HOURS', value: timeLeft.hours },
-            { label: 'MINUTES', value: timeLeft.minutes },
-          ].map(item => (
-            <div key={item.label} className="bg-white/10 rounded-lg p-4 min-w-24">
-              <div className="text-4xl font-bold">{String(item.value).padStart(2, '0')}</div>
-              <div className="text-sm uppercase tracking-wider mt-2">{item.label}</div>
-            </div>
-          ))}
-        </div>
-
-        <Button className="bg-white text-[#C47456] hover:bg-gray-100 text-lg px-8 py-6">
-          Shop Now
-        </Button>
+        <p className="text-lg text-gray-500">Up to 50% off selected items</p>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-12">

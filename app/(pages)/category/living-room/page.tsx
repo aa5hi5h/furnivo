@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useCart } from '@/contexts/cart-context';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
+import LivingRoomImage from "../../../../public/modern-living-room-debra-ackerbloom-interiors-llc-img~c971036c0bdc4f53_14-9822-1-a92e8d5.jpg"
 
 
 interface Product {
@@ -281,7 +282,7 @@ export default function LivingRoomPage() {
       <CategoryHero
         title="Living Room"
         subtitle="Create spaces that bring people together. From statement sofas to elegant coffee tables."
-        backgroundImage="https://images.pexels.com/photos/1350789/pexels-photo-1350789.jpeg?auto=compress&cs=tinysrgb&w=1600"
+        backgroundImage={LivingRoomImage}
         breadcrumb="Home > Living Room"
       />
 
