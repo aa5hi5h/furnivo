@@ -6,7 +6,7 @@ import { FilterSidebar, type FilterState } from '@/components/filter-sidebar';
 import { QuickViewModal } from '@/components/quick-view-modal';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Eye, Heart, Shuffle } from 'lucide-react';
+import { Check, Eye, Heart, ShoppingCart, Shuffle } from 'lucide-react';
 import Link from 'next/link';
 import { useCart } from '@/contexts/cart-context';
 import { toast } from 'sonner';
@@ -63,7 +63,7 @@ export default function DiningPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [showQuickView, setShowQuickView] = useState(false);
   const [wishlistItemIds, setWishlistItemIds] = useState<Record<string, string>>({});
-  const { addToCart } = useCart();
+  const { addToCart, items: cartItems } = useCart();
   const { data: session } = useSession();
 
   useEffect(() => {
@@ -122,7 +122,6 @@ export default function DiningPage() {
   const handleFilterChange = (filters: FilterState) => {
     let filtered = [...products];
 
-    // Filter by subcategories (product name contains category keyword)
     if (filters.categories.length > 0) {
       filtered = filtered.filter(p =>
         filters.categories.some(cat => 
@@ -131,7 +130,6 @@ export default function DiningPage() {
       );
     }
 
-    // Filter by materials
     if (filters.materials.length > 0) {
       filtered = filtered.filter(p =>
         filters.materials.some(mat => 
@@ -140,7 +138,6 @@ export default function DiningPage() {
       );
     }
 
-    // Filter by colors
     if (filters.colors.length > 0) {
       filtered = filtered.filter(p =>
         filters.colors.some(col => 
@@ -151,7 +148,6 @@ export default function DiningPage() {
       );
     }
 
-    // Filter by price range
     filtered = filtered.filter(
       p => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
     );
@@ -199,6 +195,10 @@ export default function DiningPage() {
     setShowQuickView(true);
   };
 
+  const isInCart = (productId: string) => {
+    return cartItems.some(item => item.productId === productId);
+  };
+
   const handleAddToCart = (productId: string, color: string, quantity: number) => {
     addToCart(productId, quantity, color);
     toast.success('Product added to cart successfully');
@@ -214,7 +214,6 @@ export default function DiningPage() {
       const wishlistItemId = wishlistItemIds[productId];
 
       if (wishlistItemId) {
-        // Remove from wishlist
         const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
           method: 'DELETE',
         });
@@ -225,14 +224,12 @@ export default function DiningPage() {
           throw new Error(result.error || 'Failed to remove from wishlist');
         }
 
-        // Update local state
         const newWishlistMap = { ...wishlistItemIds };
         delete newWishlistMap[productId];
         setWishlistItemIds(newWishlistMap);
 
         toast.success('Removed from wishlist');
       } else {
-        // Add to wishlist
         const response = await fetch('/api/wishlist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -248,7 +245,6 @@ export default function DiningPage() {
           throw new Error(result.error || 'Failed to add to wishlist');
         }
 
-        // Update local state
         setWishlistItemIds({
           ...wishlistItemIds,
           [productId]: result.data.id
@@ -349,6 +345,7 @@ export default function DiningPage() {
                     : 0;
 
                   const isWishlisted = !!wishlistItemIds[product.id];
+                  const isProductInCart = isInCart(product.id);
 
                   return (
                     <div
@@ -369,18 +366,60 @@ export default function DiningPage() {
                         )}
 
                         {discount > 0 && (
-                          <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded text-sm font-bold">
+                          <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded text-sm font-bold z-10">
                             -{discount}%
                           </div>
                         )}
 
                         {product.stock === 0 && (
-                          <div className="absolute top-3 left-3 bg-gray-800 text-white px-2 py-1 rounded text-sm font-bold">
+                          <div className="absolute top-3 left-3 bg-gray-800 text-white px-2 py-1 rounded text-sm font-bold z-10">
                             Out of Stock
                           </div>
                         )}
 
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                        {/* Mobile: Always visible buttons in center */}
+                        <div className="absolute inset-0 bg-black/20 md:hidden z-10">
+                          <div className="absolute inset-0 flex items-center justify-center gap-3">
+                            <button
+                              onClick={() => openQuickView(product)}
+                              className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors shadow-lg"
+                              title="Quick View"
+                              aria-label="Quick view"
+                            >
+                              <Eye size={20} />
+                            </button>
+                            <button
+                              onClick={() => handleAddToWishlist(product.id)}
+                              className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors shadow-lg ${
+                                isWishlisted ? 'text-red-500' : ''
+                              }`}
+                              title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                            >
+                              <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
+                              disabled={product.stock === 0}
+                              className={`rounded-full p-3 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isProductInCart
+                                  ? 'bg-green-50 text-green-600'
+                                  : 'bg-white hover:bg-[#C47456] hover:text-white'
+                              }`}
+                              title={isProductInCart ? 'Already in Cart' : 'Add to Cart'}
+                              aria-label={isProductInCart ? 'Already in cart' : 'Add to cart'}
+                            >
+                              {isProductInCart ? (
+                                <Check size={20} strokeWidth={3} />
+                              ) : (
+                                <ShoppingCart size={20} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Desktop: Hover overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors hidden md:flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
                           <button
                             onClick={() => openQuickView(product)}
                             className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
@@ -400,11 +439,21 @@ export default function DiningPage() {
                             <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
                           </button>
                           <button
-                            className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
-                            title="Compare"
-                            aria-label="Compare"
+                            onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
+                            disabled={product.stock === 0}
+                            className={`rounded-full p-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                              isProductInCart
+                                ? 'bg-green-50 text-green-600'
+                                : 'bg-white hover:bg-[#C47456] hover:text-white'
+                            }`}
+                            title={isProductInCart ? 'Already in Cart' : 'Add to Cart'}
+                            aria-label={isProductInCart ? 'Already in cart' : 'Add to cart'}
                           >
-                            <Shuffle size={20} />
+                            {isProductInCart ? (
+                              <Check size={20} strokeWidth={3} />
+                            ) : (
+                              <ShoppingCart size={20} />
+                            )}
                           </button>
                         </div>
                       </div>

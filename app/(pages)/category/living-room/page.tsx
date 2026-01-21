@@ -124,7 +124,6 @@ export default function LivingRoomPage() {
   const handleFilterChange = (filters: FilterState) => {
     let filtered = [...products];
 
-    // Filter by subcategories
     if (filters.categories.length > 0) {
       filtered = filtered.filter(p =>
         filters.categories.some(cat => 
@@ -133,7 +132,6 @@ export default function LivingRoomPage() {
       );
     }
 
-    // Filter by materials
     if (filters.materials.length > 0) {
       filtered = filtered.filter(p =>
         filters.materials.some(mat => 
@@ -142,7 +140,6 @@ export default function LivingRoomPage() {
       );
     }
 
-    // Filter by colors
     if (filters.colors.length > 0) {
       filtered = filtered.filter(p =>
         filters.colors.some(col => 
@@ -153,7 +150,6 @@ export default function LivingRoomPage() {
       );
     }
 
-    // Filter by styles
     if (filters.styles && filters.styles.length > 0) {
       filtered = filtered.filter(p =>
         filters.styles.some((style: string) => 
@@ -162,7 +158,6 @@ export default function LivingRoomPage() {
       );
     }
 
-    // Filter by price range
     filtered = filtered.filter(
       p => p.price >= filters.priceRange[0] && p.price <= filters.priceRange[1]
     );
@@ -229,7 +224,6 @@ export default function LivingRoomPage() {
       const wishlistItemId = wishlistItemIds[productId];
 
       if (wishlistItemId) {
-        // Remove from wishlist
         const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
           method: 'DELETE',
         });
@@ -240,14 +234,12 @@ export default function LivingRoomPage() {
           throw new Error(result.error || 'Failed to remove from wishlist');
         }
 
-        // Update local state
         const newWishlistMap = { ...wishlistItemIds };
         delete newWishlistMap[productId];
         setWishlistItemIds(newWishlistMap);
 
         toast.success('Removed from wishlist');
       } else {
-        // Add to wishlist
         const response = await fetch('/api/wishlist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -263,7 +255,6 @@ export default function LivingRoomPage() {
           throw new Error(result.error || 'Failed to add to wishlist');
         }
 
-        // Update local state
         setWishlistItemIds({
           ...wishlistItemIds,
           [productId]: result.data.id
@@ -287,7 +278,6 @@ export default function LivingRoomPage() {
       />
 
       <div className="max-w-7xl mx-auto">
-        {/* Filter Bar */}
         <div className="sticky top-20 bg-white border-b border-gray-200 z-40 py-4">
           <div className="flex items-center justify-between px-4 lg:px-0">
             <span className="text-sm text-gray-600">
@@ -328,7 +318,6 @@ export default function LivingRoomPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 py-8 px-4 lg:px-0">
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <FilterSidebar
               categories={LIVING_ROOM_PRODUCTS}
@@ -336,7 +325,6 @@ export default function LivingRoomPage() {
             />
           </div>
 
-          {/* Products Grid */}
           <div className="lg:col-span-3">
             {loading ? (
               <div className="flex items-center justify-center h-96">
@@ -388,42 +376,79 @@ export default function LivingRoomPage() {
                         )}
 
                         {discount > 0 && (
-                          <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded text-sm font-bold">
+                          <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded text-sm font-bold z-10">
                             -{discount}%
                           </div>
                         )}
 
                         {product.stock === 0 && (
-                          <div className="absolute top-3 left-3 bg-gray-800 text-white px-2 py-1 rounded text-sm font-bold">
+                          <div className="absolute top-3 left-3 bg-gray-800 text-white px-2 py-1 rounded text-sm font-bold z-10">
                             Out of Stock
                           </div>
                         )}
 
-<div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
-  {/* Quick View */}
-  <button
-    onClick={() => openQuickView(product)}
-    className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
-    title="Quick View"
-    aria-label="Quick view"
-  >
-    <Eye size={20} />
-  </button>
+                        {/* Mobile: Always visible buttons in center */}
+                        <div className="absolute inset-0 bg-black/20 md:hidden z-10">
+                          <div className="absolute inset-0 flex items-center justify-center gap-3">
+                            <button
+                              onClick={() => openQuickView(product)}
+                              className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors shadow-lg"
+                              title="Quick View"
+                              aria-label="Quick view"
+                            >
+                              <Eye size={20} />
+                            </button>
+                            <button
+                              onClick={() => handleAddToWishlist(product.id)}
+                              className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors shadow-lg ${
+                                isWishlisted ? 'text-red-500' : ''
+                              }`}
+                              title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                            >
+                              <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
+                              disabled={product.stock === 0}
+                              className={`rounded-full p-3 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isProductInCart
+                                  ? 'bg-green-50 text-green-600'
+                                  : 'bg-white hover:bg-[#C47456] hover:text-white'
+                              }`}
+                              title={isProductInCart ? 'Already in Cart' : 'Add to Cart'}
+                              aria-label={isProductInCart ? 'Already in cart' : 'Add to cart'}
+                            >
+                              {isProductInCart ? (
+                                <Check size={20} strokeWidth={3} />
+                              ) : (
+                                <ShoppingCart size={20} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
 
-  {/* Wishlist */}
-  <button
-    onClick={() => handleAddToWishlist(product.id)}
-    className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors ${
-      isWishlisted ? 'text-red-500' : ''
-    }`}
-    title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
-    aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-  >
-    <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
-  </button>
-
-  {/* Add to Cart */}
-  <button
+                        {/* Desktop: Hover overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors hidden md:flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                          <button
+                            onClick={() => openQuickView(product)}
+                            className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
+                            title="Quick View"
+                            aria-label="Quick view"
+                          >
+                            <Eye size={20} />
+                          </button>
+                          <button
+                            onClick={() => handleAddToWishlist(product.id)}
+                            className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors ${
+                              isWishlisted ? 'text-red-500' : ''
+                            }`}
+                            title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                          >
+                            <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
+                          </button>
+                          <button
                             onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
                             disabled={product.stock === 0}
                             className={`rounded-full p-3 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -440,7 +465,7 @@ export default function LivingRoomPage() {
                               <ShoppingCart size={20} />
                             )}
                           </button>
-</div>
+                        </div>
                       </div>
 
                       <div className="p-4 flex-1 flex flex-col">
@@ -519,7 +544,6 @@ export default function LivingRoomPage() {
               </div>
             )}
 
-            {/* Pagination */}
             {filteredProducts.length > 0 && (
               <div className="flex justify-center items-center gap-2 mt-12">
                 <Button variant="outline" className="border-gray-300">Previous</Button>

@@ -57,7 +57,6 @@ export default function DynamicCategoryPage() {
   const { addToCart, items: cartItems } = useCart();
   const { data: session } = useSession();
 
-  // Convert slug to display name
   const formatCategoryName = (slug: string) => {
     return slug
       .split('-')
@@ -263,7 +262,6 @@ export default function DynamicCategoryPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section with Gradient */}
       <div className="relative bg-gradient-to-br from-[#2C2C2C] via-[#4A4A4A] to-[#C47456] text-white">
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-20">
@@ -287,7 +285,6 @@ export default function DynamicCategoryPage() {
       </div>
 
       <div className="max-w-7xl mx-auto">
-        {/* Filter Bar */}
         <div className="sticky top-20 bg-white border-b border-gray-200 z-40 py-4">
           <div className="flex items-center justify-between px-4 lg:px-0">
             <span className="text-sm text-gray-600">
@@ -328,7 +325,6 @@ export default function DynamicCategoryPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 py-8 px-4 lg:px-0">
-          {/* Sidebar */}
           <div className="lg:col-span-1">
             <FilterSidebar
               categories={[]}
@@ -336,7 +332,6 @@ export default function DynamicCategoryPage() {
             />
           </div>
 
-          {/* Products Grid */}
           <div className="lg:col-span-3">
             {loading ? (
               <div className="flex items-center justify-center h-96">
@@ -393,18 +388,60 @@ export default function DynamicCategoryPage() {
                         )}
 
                         {discount > 0 && (
-                          <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded text-sm font-bold">
+                          <div className="absolute top-3 right-3 bg-red-500 text-white px-2 py-1 rounded text-sm font-bold z-10">
                             -{discount}%
                           </div>
                         )}
 
                         {product.stock === 0 && (
-                          <div className="absolute top-3 left-3 bg-gray-800 text-white px-2 py-1 rounded text-sm font-bold">
+                          <div className="absolute top-3 left-3 bg-gray-800 text-white px-2 py-1 rounded text-sm font-bold z-10">
                             Out of Stock
                           </div>
                         )}
 
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                        {/* Mobile: Always visible buttons in center */}
+                        <div className="absolute inset-0 bg-black/20 md:hidden z-10">
+                          <div className="absolute inset-0 flex items-center justify-center gap-3">
+                            <button
+                              onClick={() => openQuickView(product)}
+                              className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors shadow-lg"
+                              title="Quick View"
+                              aria-label="Quick view"
+                            >
+                              <Eye size={20} />
+                            </button>
+                            <button
+                              onClick={() => handleAddToWishlist(product.id)}
+                              className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors shadow-lg ${
+                                isWishlisted ? 'text-red-500' : ''
+                              }`}
+                              title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                              aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                            >
+                              <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
+                              disabled={product.stock === 0}
+                              className={`rounded-full p-3 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                                isProductInCart
+                                  ? 'bg-green-50 text-green-600'
+                                  : 'bg-white hover:bg-[#C47456] hover:text-white'
+                              }`}
+                              title={isProductInCart ? 'Already in Cart' : 'Add to Cart'}
+                              aria-label={isProductInCart ? 'Already in cart' : 'Add to cart'}
+                            >
+                              {isProductInCart ? (
+                                <Check size={20} strokeWidth={3} />
+                              ) : (
+                                <ShoppingCart size={20} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Desktop: Hover overlay */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors hidden md:flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
                           <button
                             onClick={() => openQuickView(product)}
                             className="bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors"
@@ -413,7 +450,6 @@ export default function DynamicCategoryPage() {
                           >
                             <Eye size={20} />
                           </button>
-
                           <button
                             onClick={() => handleAddToWishlist(product.id)}
                             className={`bg-white rounded-full p-3 hover:bg-[#C47456] hover:text-white transition-colors ${
@@ -424,7 +460,6 @@ export default function DynamicCategoryPage() {
                           >
                             <Heart size={20} fill={isWishlisted ? 'currentColor' : 'none'} />
                           </button>
-
                           <button
                             onClick={() => handleAddToCart(product.id, product.colors?.[0] || '', 1)}
                             disabled={product.stock === 0}

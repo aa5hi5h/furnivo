@@ -41,7 +41,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // Check if product is in wishlist on component mount
   useEffect(() => {
     const checkWishlistStatus = async () => {
       if (status !== 'authenticated' || !session?.user?.id) {
@@ -97,7 +96,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
 
     if (status !== 'authenticated' || !session?.user?.id) {
-    toast.error('Authentication required',{
+      toast.error('Authentication required',{
         description: 'Please sign in to add items to cart'
       });
       router.push('/auth');
@@ -126,7 +125,6 @@ export default function ProductCard({ product }: ProductCardProps) {
 
     try {
       if (isWishlisted && wishlistItemId) {
-        // Remove from wishlist
         const response = await fetch(`/api/wishlist/${wishlistItemId}`, {
           method: 'DELETE',
         });
@@ -143,7 +141,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           description: 'Product removed from your wishlist',
         });
       } else {
-        // Add to wishlist
         const response = await fetch('/api/wishlist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -199,19 +196,62 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
 
           {discount > 0 && (
-            <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+            <div className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full z-10">
               -{discount}%
             </div>
           )}
 
           {product.stock === 0 && (
-            <div className="absolute top-3 right-3 bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full">
+            <div className="absolute top-3 right-3 bg-gray-800 text-white text-xs font-bold px-3 py-1 rounded-full z-10">
               Out of Stock
             </div>
           )}
 
+          {/* Mobile: Always visible buttons in center */}
+          <div className="absolute inset-0 bg-black/20 md:hidden z-10">
+            <div className="absolute inset-0 flex items-center justify-center gap-3">
+              <Button
+                size="icon"
+                variant="secondary"
+                className="w-10 h-10 rounded-full bg-white hover:bg-gray-100 shadow-lg"
+                onClick={handleAddToCart}
+                disabled={product.stock === 0}
+                aria-label="Add to cart"
+              >
+                <ShoppingCart className="w-4 h-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                className="w-10 h-10 rounded-full bg-white hover:bg-gray-100 shadow-lg"
+                onClick={toggleWishlist}
+                disabled={isCheckingWishlist || isTogglingWishlist}
+                aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              >
+                {isTogglingWishlist ? (
+                  <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Heart 
+                    className={`w-4 h-4 transition-all duration-200 ${
+                      isWishlisted ? 'fill-red-500 text-red-500' : ''
+                    }`} 
+                  />
+                )}
+              </Button>
+              <Button
+                size="icon"
+                variant="secondary"
+                className="w-10 h-10 rounded-full bg-white hover:bg-gray-100 shadow-lg"
+                aria-label="Quick view"
+              >
+                <Eye className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Desktop: Hover overlay */}
           <div
-            className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+            className={`absolute inset-0 bg-black/40 transition-opacity duration-300 hidden md:block ${
               isHovered ? 'opacity-100' : 'opacity-0'
             }`}
           >
