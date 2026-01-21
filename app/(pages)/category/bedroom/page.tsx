@@ -271,7 +271,7 @@ export default function BedroomPage() {
             </span>
             <div className="flex items-center gap-4">
               <Select value={sortBy} onValueChange={handleSort}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-32 sm:w-48">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -283,7 +283,7 @@ export default function BedroomPage() {
                 </SelectContent>
               </Select>
 
-              <div className="flex gap-2">
+              <div className="hidden sm:flex gap-2">
                 {[3, 4].map(cols => (
                   <button
                     key={cols}
@@ -327,8 +327,13 @@ export default function BedroomPage() {
                 </div>
               </div>
             ) : (
-              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6`}
-                style={{ gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}
+              <div 
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                style={{ 
+                  gridTemplateColumns: window.innerWidth >= 1024 
+                    ? `repeat(${gridColumns}, minmax(0, 1fr))` 
+                    : undefined
+                }}
               >
                 {filteredProducts.map(product => {
                   const discount = product.originalPrice

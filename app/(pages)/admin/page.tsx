@@ -17,6 +17,7 @@ import {
   Eye,
   X,
   Layers,
+  Monitor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -165,6 +166,32 @@ const initialCollectionState = {
   name: '',
   description: '',
   imageUrl: '',
+};
+
+const MobileWarningModal = () => {
+  return (
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-8 text-center">
+        <div className="mb-6">
+          <div className="w-20 h-20 bg-[#C47456]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Monitor className="w-10 h-10 text-[#C47456]" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Desktop Required
+          </h2>
+          <p className="text-gray-600">
+            The Admin Panel requires a larger screen for the best experience.
+          </p>
+        </div>
+
+        <Link href="/">
+          <Button className="w-full mt-6 bg-[#C47456] hover:bg-[#B36646]">
+            Return to Home
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
 };
 
 const CollectionForm = ({
@@ -494,6 +521,7 @@ export default function AdminDashboard() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [isManageProductsOpen, setIsManageProductsOpen] = useState(false);
 const [selectedCollectionForProducts, setSelectedCollectionForProducts] = useState<string | null>(null);
+const [isMobile, setIsMobile] = useState(false);
 
   const [newProduct, setNewProduct] = useState(initialProductState);
   const [editProduct, setEditProduct] = useState(initialProductState);
@@ -506,6 +534,18 @@ const [isEditCollectionOpen, setIsEditCollectionOpen] = useState(false);
 const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
 const [newCollection, setNewCollection] = useState(initialCollectionState);
 const [editCollection, setEditCollection] = useState(initialCollectionState);
+
+
+useEffect(() => {
+  const checkScreenSize = () => {
+    setIsMobile(window.innerWidth < 1024); // lg breakpoint
+  };
+
+  checkScreenSize();
+  window.addEventListener('resize', checkScreenSize);
+
+  return () => window.removeEventListener('resize', checkScreenSize);
+}, []);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -1020,6 +1060,11 @@ const [editCollection, setEditCollection] = useState(initialCollectionState);
 
   if (!isAdminAuthenticated) {
     return <AdminAuthModal onAuthenticated={() => setIsAdminAuthenticated(true)} />;
+  }
+
+  // Show mobile warning modal if screen is too small
+if (isMobile) {
+  return <MobileWarningModal />;
   }
 
   const stats = [

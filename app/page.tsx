@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, MapPin, Facebook, Instagram, Truck, Shield, Award } from 'lucide-react';
+import { ArrowRight, MapPin, Facebook, Instagram, Truck, Shield, Award, TrendingUp, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ProductCard from '@/components/product-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -164,28 +164,31 @@ export default async function Home() {
           </div>
 
           <Tabs defaultValue="bestsellers" className="w-full">
-            <div className="flex justify-center mb-12">
-              <TabsList className="inline-flex gap-2 p-2 bg-gray-100 rounded-lg">
-                <TabsTrigger 
-                  value="bestsellers"
-                  className="px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
-                >
-                  Best Sellers
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="ready"
-                  className="px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
-                >
-                  Ready to Ship
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="new"
-                  className="px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
-                >
-                  New Arrivals
-                </TabsTrigger>
-              </TabsList>
-            </div>
+  <div className="flex justify-center mb-12">
+    <TabsList className="inline-flex gap-2 p-2 bg-gray-100 rounded-lg">
+      <TabsTrigger 
+        value="bestsellers"
+        className="px-3 sm:px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
+      >
+        <TrendingUp className="w-4 h-4 sm:mr-2" />
+        <span className="hidden sm:inline">Best Sellers</span>
+      </TabsTrigger>
+      <TabsTrigger 
+        value="ready"
+        className="px-3 sm:px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
+      >
+        <Truck className="w-4 h-4 sm:mr-2" />
+        <span className="hidden sm:inline">Ready to Ship</span>
+      </TabsTrigger>
+      <TabsTrigger 
+        value="new"
+        className="px-3 sm:px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
+      >
+        <Sparkles className="w-4 h-4 sm:mr-2" />
+        <span className="hidden sm:inline">New Arrivals</span>
+      </TabsTrigger>
+    </TabsList>
+  </div>
 
             <TabsContent value="bestsellers" className="animate-in fade-in">
               {bestSellerProducts.length > 0 ? (

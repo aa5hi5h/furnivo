@@ -543,24 +543,24 @@ export default function AccountPage() {
         </div>
 
         <Tabs defaultValue="orders" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-4 mb-8">
-            <TabsTrigger value="orders">
-              <Package className="w-4 h-4 mr-2" />
-              Orders
-            </TabsTrigger>
-            <TabsTrigger value="wishlist">
-              <Heart className="w-4 h-4 mr-2" />
-              Wishlist
-            </TabsTrigger>
-            <TabsTrigger value="addresses">
-              <MapPin className="w-4 h-4 mr-2" />
-              Addresses
-            </TabsTrigger>
-            <TabsTrigger value="settings">
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </TabsTrigger>
-          </TabsList>
+  <TabsList className="grid w-full max-w-md grid-cols-4 mb-8 gap-1">
+    <TabsTrigger value="orders" className="sm:flex-row px-2 py-2 text-xs sm:text-sm">
+      <Package className="w-4 h-4 sm:mr-2" />
+      <span className="hidden sm:inline">Orders</span>
+    </TabsTrigger>
+    <TabsTrigger value="wishlist" className="sm:flex-row px-2 py-2 text-xs sm:text-sm">
+      <Heart className="w-4 h-4 sm:mr-2" />
+      <span className="hidden sm:inline">Wishlist</span>
+    </TabsTrigger>
+    <TabsTrigger value="addresses" className="sm:flex-row px-2 py-2 text-xs sm:text-sm">
+      <MapPin className="w-4 h-4 sm:mr-2" />
+      <span className="hidden sm:inline">Addresses</span>
+    </TabsTrigger>
+    <TabsTrigger value="settings" className="sm:flex-row px-2 py-2 text-xs sm:text-sm">
+      <Settings className="w-4 h-4 sm:mr-2" />
+      <span className="hidden sm:inline">Settings</span>
+    </TabsTrigger>
+  </TabsList>
 
           {/* ORDERS TAB */}
           <TabsContent value="orders">
