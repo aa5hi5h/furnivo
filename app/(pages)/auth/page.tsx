@@ -267,7 +267,7 @@ export default function AuthPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-6">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <h1 className="font-serif text-4xl font-bold text-[#2C2C2C] mb-2">Welcome to Furnivo</h1>
+          <h1 className="font-serif text-4xl font-bold text-[#2C2C2C] mb-2">Welcome to FurnZ</h1>
           <p className="text-gray-600">Sign in or create an account to continue</p>
         </div>
 
