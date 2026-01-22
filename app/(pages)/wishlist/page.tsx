@@ -50,7 +50,6 @@ export default function WishlistPage() {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     // If still loading session, do nothing
@@ -159,13 +158,6 @@ export default function WishlistPage() {
           {wishlist.length > 0 && (
             <div className="flex gap-3">
               <Button
-                onClick={() => setShowShareModal(true)}
-                className="bg-[#C47456] hover:bg-[#B65A45] text-white flex items-center gap-2"
-              >
-                <Share2 className="w-4 h-4" />
-                Share Wishlist
-              </Button>
-              <Button
                 onClick={handleClearWishlist}
                 variant="outline"
                 className="text-red-600 hover:text-red-700 hover:border-red-600"
@@ -211,15 +203,6 @@ export default function WishlistPage() {
           </div>
         )}
       </div>
-
-      {/* Share Modal */}
-      {showShareModal && (
-        <WishlistShareModal
-          items={wishlist}
-          userName={session?.user?.name || 'User'}
-          onClose={() => setShowShareModal(false)}
-        />
-      )}
     </div>
   );
 }
