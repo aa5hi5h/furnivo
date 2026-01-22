@@ -50,12 +50,12 @@ import {
   }: OrderConfirmationEmailProps) => (
     <Html>
       <Head />
-      <Preview>Your FURNIVO order has been confirmed!</Preview>
+      <Preview>Your FurnZ order has been confirmed!</Preview>
       <Body style={main}>
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Heading style={heading}>FURNIVO</Heading>
+            <Heading style={heading}>FurnZ</Heading>
           </Section>
   
           {/* Main Content */}
@@ -167,7 +167,7 @@ import {
   
             {/* CTA Button */}
             <Section style={buttonSection}>
-              <Button style={button} href={`${process.env.NEXT_PUBLIC_APP_URL}/account/orders/${orderId}`}>
+              <Button style={button} href={`${process.env.NEXT_PUBLIC_APP_URL}/orders/${orderId}`}>
                 View Order Details
               </Button>
             </Section>

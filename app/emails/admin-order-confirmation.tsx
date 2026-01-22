@@ -62,7 +62,7 @@ import {
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Heading style={heading}>FURNIVO - NEW ORDER ALERT</Heading>
+            <Heading style={heading}>FurnZ - NEW ORDER ALERT</Heading>
           </Section>
   
           {/* Alert Banner */}

@@ -4,6 +4,7 @@ import { render } from '@react-email/render';
 import OrderConfirmationEmail from '@/app/emails/order-confirmation';
 import AdminOrderNotificationEmail from '@/app/emails/admin-order-confirmation';
 import DeliveryNotificationEmail from '@/app/emails/delivery-notification';
+import ShippingNotificationEmail from '@/app/emails/shipping-notification';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -206,6 +207,41 @@ export async function sendOrderStatusEmail(
     return { success: true, data };
   } catch (error) {
     console.error('Failed to send order status email:', error);
+    return { success: false, error };
+  }
+}
+
+export async function sendShippingNotificationEmail(
+  customerEmail: string,
+  customerName: string,
+  orderId: string,
+  trackingNumber?: string
+) {
+  try {
+    const emailHtml = await render(
+      ShippingNotificationEmail({
+        customerName,
+        orderId,
+        trackingNumber,
+      })
+    );
+
+    const { data: emailData, error } = await resend.emails.send({
+      from: `${process.env.BUSINESS_NAME} <${process.env.BUSINESS_EMAIL}>`,
+      to: customerEmail,
+      subject: `Your Order ${orderId} Has Been Shipped! 📦`,
+      html: emailHtml,
+    });
+
+    if (error) {
+      console.error('Error sending shipping notification email:', error);
+      throw error;
+    }
+
+    console.log('Shipping notification email sent:', emailData);
+    return { success: true, data: emailData };
+  } catch (error) {
+    console.error('Failed to send shipping notification email:', error);
     return { success: false, error };
   }
 }

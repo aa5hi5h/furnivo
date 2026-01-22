@@ -31,7 +31,7 @@ import {
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Heading style={heading}>FURNIVO</Heading>
+            <Heading style={heading}>FurnZ</Heading>
           </Section>
   
           {/* Success Banner */}
@@ -92,7 +92,7 @@ import {
               <Section style={buttonSection}>
                 <Button
                   style={reviewButton}
-                  href={`${process.env.NEXT_PUBLIC_APP_URL}/account/orders/${orderId}`}
+                  href={`${process.env.NEXT_PUBLIC_APP_URL}/orders/${orderId}`}
                 >
                   View Order & Leave Review
                 </Button>
@@ -145,7 +145,7 @@ import {
             {/* Thank You */}
             <Section style={thankYouSection}>
               <Text style={thankYouText}>
-                Thank you for shopping with FURNIVO! We appreciate your business and
+                Thank you for shopping with FurnZ! We appreciate your business and
                 look forward to serving you again.
               </Text>
             </Section>

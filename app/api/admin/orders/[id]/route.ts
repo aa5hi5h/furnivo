@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { sendDeliveryNotificationEmail, sendShippingNotificationEmail } from '@/lib/email';
 
 // GET single order
 export async function GET(
@@ -67,21 +68,39 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { status, paymentMethod } = body;
+    const { status, paymentMethod, trackingNumber } = body;
 
-    // Check if order exists
+    // Check if order exists and get full details
     const existingOrder = await prisma.order.findUnique({
       where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!existingOrder) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    // Check if user has required fields for email
+    const canSendEmail = existingOrder.user.email && existingOrder.user.name;
+
+    // Track if status is changing to shipped or delivered
+    const oldStatus = existingOrder.status;
+    const newStatus = status || existingOrder.status;
+    const statusChanged = oldStatus !== newStatus;
+
+    // Update the order
     const order = await prisma.order.update({
       where: { id },
       data: {
-        status: status || existingOrder.status,
+        status: newStatus,
         paymentMethod: paymentMethod !== undefined ? paymentMethod : existingOrder.paymentMethod,
       },
       include: {
@@ -100,6 +119,34 @@ export async function PUT(
         address: true,
       },
     });
+
+    // Send email notifications if status changed and email is possible
+    if (statusChanged && canSendEmail) {
+      const userEmail = order.user.email!;
+      const userName = order.user.name!;
+      const orderId = order.id;
+
+      // Send appropriate email based on new status (non-blocking)
+      if (newStatus === 'shipped') {
+        sendShippingNotificationEmail(
+          userEmail,
+          userName,
+          orderId,
+          trackingNumber
+        )
+          .then(() => console.log('✓ Shipping notification email sent to:', userEmail))
+          .catch((err:any) => console.error('✗ Failed to send shipping email:', err));
+      } else if (newStatus === 'delivered') {
+        sendDeliveryNotificationEmail(
+          userEmail,
+          userName,
+          orderId,
+          trackingNumber
+        )
+          .then(() => console.log('✓ Delivery notification email sent to:', userEmail))
+          .catch((err) => console.error('✗ Failed to send delivery email:', err));
+      }
+    }
 
     return NextResponse.json(order);
   } catch (error) {
