@@ -104,7 +104,7 @@ export default async function Home() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
         <div className="relative h-full max-w-7xl mx-auto px-6 flex items-end pb-16">
           <div className="text-white max-w-xl">
-            <p className="text-lg mb-2 font-light tracking-wide">WELCOME TO FURNIVO</p>
+            <p className="text-lg mb-2 font-light tracking-wide">WELCOME TO FurnZ</p>
             <h1 className="font-serif text-5xl lg:text-6xl font-bold mb-4 leading-tight">
               Crafted for Comfort. Designed for Life.
             </h1>

@@ -106,15 +106,15 @@ export default function Header() {
                 alt="furnZ"
                 width={180}
                 height={180}
-                className="h-20 w-auto -my-4 ml-2"
+                className=" h-16 md:h-20 w-auto -my-4 md:ml-2"
                 priority
               />
             </Link>
 
             {/* Search Bar - Desktop & Mobile */}
-            <div className="flex-1 max-w-2xl">
-              <SearchDropdown />
-            </div>
+            <div className="flex-1 max-w-md sm:max-w-lg md:max-w-xl lg:max-w-2xl">
+  <SearchDropdown />
+</div>
 
             <div className="flex items-center gap-3 lg:gap-4">
               <Button variant="outline" className="hidden md:flex rounded-full px-6">
