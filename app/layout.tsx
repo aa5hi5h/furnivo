@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FURNIVO - Premium Furniture Store",
+  title: "Furnz.in - Premium Furniture Store",
   description: "Discover beautiful and affordable furniture for your home",
   icons: {
     icon: '/Furnz-logo.jpg'
