@@ -275,6 +275,7 @@ export default function LivingRoomPage() {
         subtitle="Create spaces that bring people together. From statement sofas to elegant coffee tables."
         backgroundImage={LivingRoomImage}
         breadcrumb="Home > Living Room"
+        categorySlug='living-room'
       />
 
       <div className="max-w-7xl mx-auto">

@@ -18,6 +18,7 @@ import {
   X,
   Layers,
   Monitor,
+  ImageIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,7 @@ import ImageUploader from '@/components/image-uploader-componet';
 import Link from 'next/link';
 import FurnZLogo from "../../../public/Furnz-logo.png"
 import CollectionImageUploader from '@/components/collection-image-uploader';
+import AdminBannerPanel from '@/components/admin-banner-pannel';
 
 interface Product {
   id: string;
@@ -1086,6 +1088,7 @@ if (isMobile) {
     { name: 'Customers', icon: Users, value: 'customers' },
     { name: 'Design Bookings', icon: Calendar, value: 'bookings' },
     { name: 'Analytics', icon: BarChart3, value: 'analytics' },
+    { name: 'Banners', icon: ImageIcon, value: 'banners' },
     { name: 'Settings', icon: Settings, value: 'settings' },
   ];
 
@@ -2014,6 +2017,10 @@ if (isMobile) {
               customers={customers} 
             />
           )}
+
+          {
+            activeTab === "banners" && <AdminBannerPanel />
+          }
 
 {activeTab === 'settings' && <AdminSettingsPanel />}
         </div>

@@ -265,6 +265,7 @@ export default function DiningPage() {
         subtitle="Make every meal memorable with furniture that brings everyone together."
         backgroundImage={DiningImage}
         breadcrumb="Home > Dining"
+        categorySlug='dining'
       />
 
       <div className="max-w-7xl mx-auto">

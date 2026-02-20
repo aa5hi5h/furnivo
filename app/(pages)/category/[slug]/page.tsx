@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useCart } from '@/contexts/cart-context';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
+import { CategoryHero } from '@/components/category-hero';
 
 interface Product {
   id: string;
@@ -264,24 +265,13 @@ export default function DynamicCategoryPage() {
     <div className="min-h-screen bg-white">
       <div className="relative bg-gradient-to-br from-[#2C2C2C] via-[#4A4A4A] to-[#C47456] text-white">
         <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative max-w-7xl mx-auto px-4 lg:px-8 py-20">
-          <Link 
-            href="/" 
-            className="inline-flex items-center gap-2 text-white/80 hover:text-white mb-6 transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span>Back to Home</span>
-          </Link>
-          
-          <h1 className="text-4xl lg:text-5xl font-bold mb-4">{categoryName}</h1>
-          <p className="text-xl text-white/90 max-w-2xl">
-            Discover our curated collection of {categoryName.toLowerCase()} furniture
-          </p>
-          
-          <div className="mt-6 text-sm text-white/70">
-            Home &gt; {categoryName}
-          </div>
-        </div>
+<CategoryHero
+  title={categoryName}
+  subtitle={`Discover our curated collection of ${categoryName.toLowerCase()} furniture`}
+  backgroundImage=""
+  breadcrumb={`Home > ${categoryName}`}
+  categorySlug={categorySlug}
+/>
       </div>
 
       <div className="max-w-7xl mx-auto">

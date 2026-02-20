@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { useBannerImage } from '@/hooks/use-banner-image';
 
 interface Collection {
   id: string;
@@ -15,11 +16,15 @@ interface Collection {
   createdAt: string;
 }
 
+const DEFAULT_COLLECTIONS_BANNER = 'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=1600';
+
 export default function CollectionsPage() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [filteredCollections, setFilteredCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('featured');
+
+  const heroBanner = useBannerImage('collections', DEFAULT_COLLECTIONS_BANNER);
 
   useEffect(() => {
     fetchCollections();
@@ -60,10 +65,10 @@ export default function CollectionsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section */}
+      {/* Hero Section - NOW DYNAMIC */}
       <div
-        className="relative w-full h-[60vh] bg-cover bg-center"
-        style={{ backgroundImage: `url('https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg?auto=compress&cs=tinysrgb&w=1600')` }}
+        className="relative w-full h-[60vh] bg-cover bg-center transition-all duration-500"
+        style={{ backgroundImage: `url('${heroBanner}')` }}
       >
         <div className="absolute inset-0 bg-black/30" />
         <div className="relative h-full flex flex-col justify-center items-center text-center">

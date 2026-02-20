@@ -262,11 +262,12 @@ export default function BedroomPage() {
   return (
     <div className="min-h-screen bg-white">
       <CategoryHero
-        title="Bedroom"
-        subtitle="Your personal sanctuary. Discover furniture designed for rest and relaxation."
-        backgroundImage={BedroomImage}
-        breadcrumb="Home > Bedroom"
-      />
+  title="Bedroom"
+  subtitle="Your personal sanctuary. Discover furniture designed for rest and relaxation."
+  backgroundImage={BedroomImage}
+  breadcrumb="Home > Bedroom"
+  categorySlug="bedroom"
+  />
 
       <div className="max-w-7xl mx-auto">
         <div className="sticky top-20 bg-white border-b border-gray-200 z-40 py-4">
