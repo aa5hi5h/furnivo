@@ -1,353 +1,471 @@
+'use client';
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { ArrowRight, Truck, Shield, Award, TrendingUp, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowRight,
+  ChevronDown,
+  Instagram,
+  Facebook,
+  Mail,
+  Truck,
+  Shield,
+  Award,
+  Sofa,
+  Armchair,
+  Table2,
+  LampFloor,
+  BedDouble,
+  Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import ProductCard from '@/components/product-card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import CtaDirection from '@/components/cta-dir';
-import HomeBanner from '@/components/home-banner'; 
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:3000';
+// ---------------------------------------------------------------------------
+// Scroll-triggered reveal — used for every section below the hero so the page
+// feels alive as you scroll, not just on first load.
+// ---------------------------------------------------------------------------
+function Reveal({
+  children,
+  className = '',
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
-async function getProductsBySort(sortBy: string) {
-  try {
-    const res = await fetch(`${API_BASE}/api/products?limit=50`, {
-      next: { revalidate: 3600 }
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    let products = data.data || [];
-    if (sortBy === 'bestseller') {
-      products.sort((a: any, b: any) => (b.reviewCount || 0) - (a.reviewCount || 0));
-    } else if (sortBy === 'new') {
-      products.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }
-    return products.slice(0, 8);
-  } catch (error) {
-    console.error(`Error fetching ${sortBy} products:`, error);
-    return [];
-  }
-}
-
-async function getWavveCollection() {
-  try {
-    const res = await fetch(`${API_BASE}/api/collections/wavve-collection`, {
-      next: { revalidate: 3600 }
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (error) {
-    return null;
-  }
-}
-
-async function getAllCollections() {
-  try {
-    const res = await fetch(`${API_BASE}/api/collections?limit=6`, {
-      next: { revalidate: 3600 }
-    });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch (error) {
-    return [];
-  }
-}
-
-async function getAllProducts() {
-  try {
-    const res = await fetch(`${API_BASE}/api/products?limit=50`, {
-      next: { revalidate: 3600 }
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.data || [];
-  } catch (error) {
-    return [];
-  }
-}
-
-export default async function Home() {
-  const [
-    bestSellerProducts,
-    newArrivalProducts,
-    allProducts,
-    wavveCollection,
-    collections,
-  ] = await Promise.all([
-    getProductsBySort('bestseller'),
-    getProductsBySort('new'),
-    getAllProducts(),
-    getWavveCollection(),
-    getAllCollections(),
-  ]);
-
-  const readyToShipProducts = allProducts.filter((p: any) => p.stock > 0).slice(0, 8);
-  const wavveProducts = allProducts.filter((p: any) => p.collectionId === wavveCollection?.id).slice(0, 4);
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="bg-white">
-      {/* Hero Section — client component fetches banner dynamically */}
-      <HomeBanner />
+    <div
+      ref={ref}
+      className={`reveal ${visible ? 'reveal-visible' : ''} ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
+  );
+}
 
-      {/* Trust Badges Section */}
-      <section className="bg-[#2C2C2C] text-white py-12">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <div className="flex items-center gap-4">
-              <Truck className="w-8 h-8 text-[#C47456]" />
-              <div>
-                <h3 className="font-semibold">Free Shipping</h3>
-                <p className="text-sm text-gray-300">On orders above ₹50,000</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Shield className="w-8 h-8 text-[#C47456]" />
-              <div>
-                <h3 className="font-semibold">Secure Payment</h3>
-                <p className="text-sm text-gray-300">100% safe transactions</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <Award className="w-8 h-8 text-[#C47456]" />
-              <div>
-                <h3 className="font-semibold">Quality Assured</h3>
-                <p className="text-sm text-gray-300">Premium furniture pieces</p>
-              </div>
-            </div>
+// Minimal single-line armchair, drawn with one continuous stroke so it can
+// "assemble" itself on load — the signature moment of the page.
+function AssemblingChair({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 400 400"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M 90 180
+           L 90 300
+           Q 90 320 110 320
+           L 110 340
+           M 110 320 L 290 320
+           L 290 340
+           M 290 320 Q 310 320 310 300
+           L 310 180
+           M 90 180 Q 90 140 130 140
+           L 270 140 Q 310 140 310 180
+           M 130 140 L 130 90 Q 130 70 150 70
+           L 250 70 Q 270 70 270 90
+           L 270 140
+           M 90 220 L 60 220 Q 50 220 50 230
+           L 50 260 Q 50 270 60 270
+           L 90 270
+           M 310 220 L 340 220 Q 350 220 350 230
+           L 350 260 Q 350 270 340 270
+           L 310 270"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pathLength="1"
+        className="chair-draw"
+      />
+    </svg>
+  );
+}
+
+type Swatch = { name: string; note: string; texture: React.CSSProperties };
+
+const SWATCHES: Swatch[] = [
+  {
+    name: 'Walnut',
+    note: 'Frames',
+    texture: {
+      backgroundColor: '#5A4030',
+      backgroundImage:
+        'repeating-linear-gradient(100deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 7px)',
+    },
+  },
+  {
+    name: 'Bouclé',
+    note: 'Upholstery',
+    texture: {
+      backgroundColor: '#D8CBB8',
+      backgroundImage: 'radial-gradient(rgba(0,0,0,0.12) 1.2px, transparent 1.2px)',
+      backgroundSize: '7px 7px',
+    },
+  },
+  {
+    name: 'Brass',
+    note: 'Hardware',
+    texture: {
+      backgroundColor: '#9C7A3E',
+      backgroundImage:
+        'linear-gradient(115deg, rgba(255,255,255,0.35) 0%, transparent 30%, transparent 60%, rgba(255,255,255,0.2) 80%)',
+    },
+  },
+  {
+    name: 'Linen',
+    note: 'Soft goods',
+    texture: {
+      backgroundColor: '#C9BFA8',
+      backgroundImage:
+        'repeating-linear-gradient(0deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 4px), repeating-linear-gradient(90deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1px, transparent 1px, transparent 4px)',
+    },
+  },
+  {
+    name: 'Rattan',
+    note: 'Weave detail',
+    texture: {
+      backgroundColor: '#B08654',
+      backgroundImage:
+        'repeating-linear-gradient(45deg, rgba(0,0,0,0.15) 0px, rgba(0,0,0,0.15) 2px, transparent 2px, transparent 9px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 2px, transparent 2px, transparent 9px)',
+    },
+  },
+  {
+    name: 'Charcoal Oak',
+    note: 'Accent legs',
+    texture: {
+      backgroundColor: '#33291F',
+      backgroundImage:
+        'repeating-linear-gradient(95deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 1px, transparent 1px, transparent 8px)',
+    },
+  },
+];
+
+const CATEGORIES = [
+  { name: 'Sofas', Icon: Sofa },
+  { name: 'Chairs', Icon: Armchair },
+  { name: 'Tables', Icon: Table2 },
+  { name: 'Lighting', Icon: LampFloor },
+  { name: 'Bedroom', Icon: BedDouble },
+  { name: 'Decor', Icon: Sparkles },
+];
+
+const PERKS = [
+  {
+    title: 'Early Access',
+    body: 'Founding members shop the full collection 48 hours before anyone else.',
+  },
+  {
+    title: 'Launch Pricing',
+    body: 'Lock in opening-week pricing on your first order, before it changes.',
+  },
+  {
+    title: 'A Design Consult',
+    body: 'A short call with our team to help plan the room you\u2019re furnishing.',
+  },
+];
+
+function EmailForm({ id }: { id: string }) {
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.includes('@')) return;
+    // TODO: wire this up to your actual mailing-list endpoint
+    setSubmitted(true);
+  };
+
+  if (submitted) {
+    return (
+      <div className="rounded-full border border-[#C47456]/40 bg-[#C47456]/10 px-6 py-4 inline-block">
+        <p className="text-[#C47456] font-medium">You&apos;re on the list — talk soon.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      id={id}
+      onSubmit={handleSubmit}
+      className="flex flex-col sm:flex-row gap-3 w-full max-w-md"
+    >
+      <div className="relative flex-1">
+        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Enter your email"
+          className="w-full pl-11 pr-4 py-3 rounded-full bg-white/5 border border-white/15 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#C47456] focus:border-transparent"
+        />
+      </div>
+      <Button
+        type="submit"
+        className="bg-[#C47456] hover:bg-[#C47456]/90 text-white rounded-full px-6 py-3 h-auto whitespace-nowrap"
+      >
+        Notify Me
+        <ArrowRight className="ml-2 w-4 h-4" />
+      </Button>
+    </form>
+  );
+}
+
+export default function ComingSoonPage() {
+  return (
+    <div className="bg-[#2C2C2C]">
+      <style>{`
+        @keyframes draw-chair { to { stroke-dashoffset: 0; } }
+        .chair-draw {
+          stroke-dasharray: 1;
+          stroke-dashoffset: 1;
+          animation: draw-chair 2.4s cubic-bezier(0.65, 0, 0.35, 1) 0.3s forwards;
+        }
+        .reveal {
+          opacity: 0;
+          transform: translateY(24px);
+          transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .reveal-visible {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .chair-draw { animation: none; stroke-dashoffset: 0; }
+          .reveal { opacity: 1; transform: none; transition: none; }
+        }
+      `}</style>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* HERO — the main event, first thing anyone sees                    */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="min-h-screen flex flex-col items-center justify-center text-white px-6 py-24 relative">
+        <div className="max-w-2xl w-full text-center">
+          <div className="flex justify-center mb-2">
+            <AssemblingChair className="w-40 h-40 sm:w-48 sm:h-48 text-[#C47456]/70" />
+          </div>
+
+          <p className="text-sm uppercase tracking-widest text-[#C47456] mb-4 font-semibold">
+            Opening Soon
+          </p>
+
+          <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight mb-6">
+            Something Beautiful<br />Is Being Made Ready
+          </h1>
+
+          <p className="text-gray-300 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
+            We&apos;re putting the finishing touches on our new home. Leave your
+            email and we&apos;ll tell you the moment the doors open — or scroll
+            down for a preview of what&apos;s coming.
+          </p>
+
+          <div className="flex justify-center">
+            <EmailForm id="hero-email" />
+          </div>
+
+          <div className="flex items-center justify-center gap-4 mt-10">
+            <a
+              href="#"
+              aria-label="Instagram"
+              className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-gray-300 hover:text-[#C47456] hover:border-[#C47456] transition-colors"
+            >
+              <Instagram className="w-4 h-4" />
+            </a>
+            <a
+              href="#"
+              aria-label="Facebook"
+              className="w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-gray-300 hover:text-[#C47456] hover:border-[#C47456] transition-colors"
+            >
+              <Facebook className="w-4 h-4" />
+            </a>
           </div>
         </div>
+
+        <a
+          href="#sneak-peek"
+          aria-label="Scroll to see what's coming"
+          className="absolute bottom-8 text-gray-400 hover:text-[#C47456] transition-colors animate-bounce"
+        >
+          <ChevronDown className="w-6 h-6" />
+        </a>
       </section>
 
-      {/* Featured/Best Sellers Section */}
-      <section className="bg-white py-20">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <p className="text-sm uppercase tracking-widest text-[#C47456] mb-2 font-semibold">OUR COLLECTION</p>
+      {/* ---------------------------------------------------------------- */}
+      {/* SNEAK PEEK — veiled category preview                              */}
+      {/* ---------------------------------------------------------------- */}
+      <section id="sneak-peek" className="bg-white py-24">
+        <div className="max-w-6xl mx-auto px-6">
+          <Reveal className="text-center mb-16">
+            <p className="text-sm uppercase tracking-widest text-[#C47456] mb-2 font-semibold">
+              Sneak Peek
+            </p>
             <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[#2C2C2C] mb-4">
-              Discover What You Love
+              A Peek Behind The Curtain
             </h2>
             <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-              Handpicked furniture pieces that combine style, comfort, and quality
+              The collection is still under wraps, but here&apos;s what it&apos;s
+              built from. Hover to bring each one a little more into focus.
             </p>
-          </div>
+          </Reveal>
 
-          <Tabs defaultValue="bestsellers" className="w-full">
-            <div className="flex justify-center mb-12">
-              <TabsList className="inline-flex gap-2 p-2 bg-gray-100 rounded-lg">
-                <TabsTrigger
-                  value="bestsellers"
-                  className="px-3 sm:px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
-                >
-                  <TrendingUp className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Best Sellers</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="ready"
-                  className="px-3 sm:px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
-                >
-                  <Truck className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Ready to Ship</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="new"
-                  className="px-3 sm:px-6 py-2 rounded-md data-[state=active]:bg-white data-[state=active]:text-[#C47456] data-[state=active]:shadow-md transition-all"
-                >
-                  <Sparkles className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">New Arrivals</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <TabsContent value="bestsellers" className="animate-in fade-in">
-              {bestSellerProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {bestSellerProducts.map((product: any) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+            {CATEGORIES.map(({ name, Icon }, i) => (
+              <Reveal key={name} delay={i * 80}>
+                <div className="group relative aspect-square rounded-2xl bg-gradient-to-br from-[#2C2C2C] to-[#463A2E] overflow-hidden flex items-center justify-center shadow-md">
+                  <Icon
+                    className="w-16 h-16 text-white/45 blur-[0.5px] group-hover:blur-0 group-hover:text-white/65 group-hover:scale-110 transition-all duration-500"
+                  />
+                  <span className="absolute top-4 left-4 text-[10px] uppercase tracking-widest bg-[#C47456] text-white px-2 py-1 rounded-full">
+                    Coming Soon
+                  </span>
+                  <span className="absolute bottom-4 left-4 text-white text-sm font-semibold uppercase tracking-widest">
+                    {name}
+                  </span>
                 </div>
-              ) : (
-                <div className="text-center py-16">
-                  <p className="text-gray-500 text-lg">No bestseller products available</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="ready" className="animate-in fade-in">
-              {readyToShipProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {readyToShipProducts.map((product: any) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16">
-                  <p className="text-gray-500 text-lg">No products ready to ship</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="new" className="animate-in fade-in">
-              {newArrivalProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                  {newArrivalProducts.map((product: any) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16">
-                  <p className="text-gray-500 text-lg">No new arrival products available</p>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-
-          <div className="text-center mt-12">
-            <Link href="/products">
-              <Button variant="outline" size="lg" className="border-[#C47456] text-[#C47456] hover:bg-[#C47456] hover:text-white">
-                View All Products
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Wavve Collection Section */}
-      {wavveCollection && (
-        <section className="bg-gradient-to-br from-gray-50 to-gray-100 py-20">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div className="relative h-[500px] rounded-2xl overflow-hidden shadow-2xl order-2 lg:order-1">
-                <Image
-                  src={wavveCollection.imageUrl || "https://images.pexels.com/photos/1350789/pexels-photo-1350789.jpeg"}
-                  alt={wavveCollection.name}
-                  fill
-                  className="object-cover hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-              <div className="order-1 lg:order-2">
-                <p className="text-sm uppercase tracking-widest text-[#C47456] mb-4 font-semibold">FEATURED COLLECTION</p>
-                <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[#2C2C2C] mb-6 leading-tight">
-                  {wavveCollection.name}
-                </h2>
-                <p className="text-gray-600 mb-8 leading-relaxed text-lg">
-                  {wavveCollection.description || "Sculptural Design Meets Functional Beauty."}
-                </p>
-                <Link href={`/collections/${wavveCollection.slug}`}>
-                  <Button className="bg-[#2C2C2C] hover:bg-[#2C2C2C]/90 text-white mb-12">
-                    Explore Full Collection
-                    <ArrowRight className="ml-2 w-4 h-4" />
-                  </Button>
-                </Link>
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-600 mb-4 uppercase tracking-wider">Featured Items</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    {wavveProducts.map((product: any) => (
-                      <Link key={product.id} href={`/products/${product.slug}`} className="group">
-                        <div className="relative aspect-square bg-gray-300 rounded-lg overflow-hidden mb-3 shadow-md">
-                          {product.images?.[0] ? (
-                            <Image src={product.images[0]} alt={product.name} fill className="object-cover group-hover:scale-110 transition-transform duration-300" />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                              <span className="text-gray-400">No image</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-sm font-medium text-gray-900 group-hover:text-[#C47456] transition-colors line-clamp-2">{product.name}</p>
-                        <p className="text-sm font-semibold text-[#C47456]">₹{product.price?.toLocaleString('en-IN')}</p>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* CTA Section */}
-      <section className="bg-[#2C2C2C] text-white py-20">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="font-serif text-4xl lg:text-5xl font-bold mb-6">Ready to Transform Your Space?</h2>
-          <p className="text-xl text-gray-300 mb-8">Explore our complete collection and find the perfect furniture for your home</p>
-          <Link href="/products">
-            <Button size="lg" className="bg-[#C47456] hover:bg-[#C47456]/90 text-white">
-              Start Shopping
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* Collections Section */}
-      {collections && collections.length > 0 && (
-        <section className="bg-white py-20">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-16">
-              <p className="text-sm uppercase tracking-widest text-[#C47456] mb-2 font-semibold">BROWSE BY</p>
-              <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[#2C2C2C] mb-4">Our Collections</h2>
-              <p className="text-gray-600 text-lg max-w-2xl mx-auto">Explore curated collections designed for every style and space</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {collections.map((collection: any) => (
-                <Link key={collection.id} href={`/collections/${collection.slug}`} className="group">
-                  <div className="relative h-80 bg-gray-300 rounded-xl overflow-hidden shadow-lg mb-4">
-                    {collection.imageUrl ? (
-                      <Image src={collection.imageUrl} alt={collection.name} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                        <span className="text-gray-500 text-lg">No image</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
-                  </div>
-                  <h3 className="text-2xl font-semibold text-[#2C2C2C] group-hover:text-[#C47456] transition-colors">{collection.name}</h3>
-                  <p className="text-gray-600 mt-2 line-clamp-2">{collection.description || "Explore this collection"}</p>
-                  <div className="flex items-center gap-2 mt-4 text-[#C47456] font-medium">
-                    View Collection
-                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="bg-gradient-to-r from-[#2C2C2C] to-[#3a3a3a] text-white py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              { icon: <Truck className="w-10 h-10 text-[#C47456] flex-shrink-0" />, title: 'Free Shipping', sub: 'On orders above ₹50,000', note: 'Pan India delivery in 7-14 days' },
-              { icon: <Shield className="w-10 h-10 text-[#C47456] flex-shrink-0" />, title: 'Secure Payment', sub: '100% safe transactions', note: 'SSL encrypted with Razorpay' },
-              { icon: <Award className="w-10 h-10 text-[#C47456] flex-shrink-0" />, title: 'Quality Assured', sub: 'Premium furniture pieces', note: 'Crafted with finest materials' },
-              { icon: <div className="w-10 h-10 text-[#C47456] flex-shrink-0 flex items-center justify-center text-xl font-bold">✓</div>, title: 'Easy Returns', sub: '30-day hassle-free returns', note: 'Full refund or exchange' },
-            ].map(({ icon, title, sub, note }) => (
-              <div key={title} className="flex items-start gap-4 p-6 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                {icon}
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">{title}</h3>
-                  <p className="text-sm text-gray-300">{sub}</p>
-                  <p className="text-xs text-gray-400 mt-2">{note}</p>
-                </div>
-              </div>
+              </Reveal>
             ))}
           </div>
-          <div className="mt-12 pt-8 border-t border-white/10">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-              {[['500+', 'Premium Products'], ['10K+', 'Happy Customers'], ['4.8★', 'Customer Rating']].map(([val, label]) => (
-                <div key={label}>
-                  <p className="text-2xl font-bold text-[#C47456]">{val}</p>
-                  <p className="text-gray-300 mt-1">{label}</p>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* CRAFTED WITH CARE — materials story                               */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="bg-gradient-to-br from-[#221E19] to-[#2C2C2C] py-24 text-white">
+        <div className="max-w-6xl mx-auto px-6">
+          <Reveal className="text-center mb-16">
+            <p className="text-sm uppercase tracking-widest text-[#C47456] mb-2 font-semibold">
+              Palette — Not Yet Final
+            </p>
+            <h2 className="font-serif text-4xl lg:text-5xl font-bold mb-4">
+              Crafted With Care
+            </h2>
+            <p className="text-gray-300 text-lg max-w-2xl mx-auto">
+              Every piece starts as a swatch before it becomes a chair. Here&apos;s
+              what&apos;s on the table right now.
+            </p>
+          </Reveal>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5 max-w-4xl mx-auto">
+            {SWATCHES.map((s, i) => (
+              <Reveal key={s.name} delay={i * 90}>
+                <div className="group">
+                  <div
+                    className="aspect-square rounded-xl shadow-lg ring-1 ring-white/10 group-hover:-translate-y-1 transition-transform duration-300"
+                    style={s.texture}
+                  />
+                  <p className="text-sm font-medium text-white mt-3">{s.name}</p>
+                  <p className="text-xs text-gray-500">{s.note}</p>
                 </div>
-              ))}
-            </div>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      <CtaDirection />
+      {/* ---------------------------------------------------------------- */}
+      {/* FOUNDING MEMBER PERKS                                             */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="bg-white py-24">
+        <div className="max-w-5xl mx-auto px-6">
+          <Reveal className="text-center mb-16">
+            <p className="text-sm uppercase tracking-widest text-[#C47456] mb-2 font-semibold">
+              Worth The Wait
+            </p>
+            <h2 className="font-serif text-4xl lg:text-5xl font-bold text-[#2C2C2C] mb-4">
+              Sign Up Now, Get More Later
+            </h2>
+            <p className="text-gray-600 text-lg max-w-2xl mx-auto">
+              Everyone on the list before launch gets these, automatically.
+            </p>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-3 gap-8">
+            {PERKS.map((perk, i) => (
+              <Reveal key={perk.title} delay={i * 100}>
+                <div className="p-8 rounded-2xl bg-gray-50 border border-gray-100 h-full">
+                  <div className="w-10 h-10 rounded-full bg-[#C47456]/10 text-[#C47456] flex items-center justify-center font-serif font-bold mb-5">
+                    {i + 1}
+                  </div>
+                  <h3 className="font-serif text-xl font-bold text-[#2C2C2C] mb-2">
+                    {perk.title}
+                  </h3>
+                  <p className="text-gray-600 leading-relaxed">{perk.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* FINAL CTA                                                         */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="bg-[#2C2C2C] text-white py-24">
+        <Reveal className="max-w-2xl mx-auto px-6 text-center flex flex-col items-center">
+          <h2 className="font-serif text-4xl lg:text-5xl font-bold mb-6">
+            Don&apos;t Miss The Opening
+          </h2>
+          <p className="text-xl text-gray-300 mb-10">
+            One email, sent once — the day we open the doors.
+          </p>
+          <EmailForm id="footer-email" />
+        </Reveal>
+      </section>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* TRUST STRIP                                                       */}
+      {/* ---------------------------------------------------------------- */}
+      <section className="bg-[#221E19] border-t border-white/10 py-12">
+        <div className="max-w-5xl mx-auto px-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            <div className="flex items-center gap-3 justify-center sm:justify-start">
+              <Truck className="w-6 h-6 text-[#C47456] flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-sm text-white">Free Shipping</p>
+                <p className="text-xs text-gray-400">On orders above ₹50,000</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 justify-center sm:justify-start">
+              <Shield className="w-6 h-6 text-[#C47456] flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-sm text-white">Secure Payment</p>
+                <p className="text-xs text-gray-400">100% safe transactions</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 justify-center sm:justify-start">
+              <Award className="w-6 h-6 text-[#C47456] flex-shrink-0" />
+              <div>
+                <p className="font-semibold text-sm text-white">Quality Assured</p>
+                <p className="text-xs text-gray-400">Premium furniture pieces</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
